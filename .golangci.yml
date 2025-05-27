@@ -1,0 +1,13 @@
+version: "2"
+linters:
+  default: fast
+  disable:
+    - depguard
+    - mnd
+    - prealloc
+    - testpackage
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - golines

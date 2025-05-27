@@ -1,0 +1,16 @@
+# https://taskfile.dev
+version: '3'
+output: prefixed
+tasks:
+  build:
+    desc: Build the program
+    cmd: go build
+  lint:
+    desc: Lint code
+    cmd: golangci-lint run
+  format:
+    desc: Format code
+    cmd: golangci-lint fmt
+  test:
+    desc: Test code
+    cmd: go test ./...
