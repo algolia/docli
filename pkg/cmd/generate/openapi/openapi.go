@@ -51,12 +51,13 @@ openapi: /{{.InputFilename }} {{ .Verb }} {{ .ApiPath }}
 func NewOpenAPICommand() *cobra.Command {
 	opts := &Options{}
 
-	command := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "openapi",
 		Aliases: []string{"stubs"},
 		Short:   "Generate HTTP API reference files from an OpenAPI spec",
 		Long: heredoc.Doc(`
 			This command reads an OpenAPI 3 spec file and generates one MDX file per operation.
+			The command groups the operations into subdirectories by tags.
 		`),
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -67,10 +68,10 @@ func NewOpenAPICommand() *cobra.Command {
 		},
 	}
 
-	command.Flags().
+	cmd.Flags().
 		StringVarP(&opts.OutputDirectory, "output", "o", "out", "Output directory for generated MDX files")
 
-	return command
+	return cmd
 }
 
 // runCommand runs the `generate openapi` command.
@@ -79,6 +80,9 @@ func runCommand(opts *Options) {
 	if err != nil {
 		log.Fatalf("Error: %e", err)
 	}
+
+	fmt.Printf("Generating MDX stub files for spec: %s\n", opts.InputFileName)
+	fmt.Printf("Writing output in: %s\n", opts.OutputDirectory)
 
 	opts.SpecFile = specFile
 
@@ -126,6 +130,7 @@ func apiStubData(
 	opts *Options,
 ) ([]OperationData, error) {
 	var result []OperationData
+	count := 0
 
 	prefix := fmt.Sprintf("%s/%s", opts.OutputDirectory, opts.ApiName)
 
@@ -149,7 +154,7 @@ func apiStubData(
 			data := OperationData{
 				Acl:            strings.Join(acl, ","),
 				ApiPath:        pathName,
-				InputFilename:  opts.InputFileName,
+				InputFilename:  strings.TrimPrefix(opts.InputFileName, "/"),
 				OutputFilename: outputFilename(op),
 				OutputPath:     outputPath(op, prefix),
 				RequiresAdmin:  false,
@@ -161,8 +166,11 @@ func apiStubData(
 			}
 
 			result = append(result, data)
+			count++
 		}
 	}
+
+	fmt.Printf("Spec %s has %d operations.\n", opts.InputFileName, count)
 
 	return result, nil
 }
