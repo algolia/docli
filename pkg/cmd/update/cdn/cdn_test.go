@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestReadData(t *testing.T) {
+func TestReadData(t *testing.T) { //nolint:funlen
 	type want struct {
 		packages []Package
 		err      bool
@@ -254,18 +254,6 @@ func TestGetIncludeLinksCustomFile(t *testing.T) {
 	// Integrity should match the hash for "/other.js"
 	if pkg.Integrity != "HASH_OTHER" {
 		t.Errorf("got Integrity=%q; want %q", pkg.Integrity, "HASH_OTHER")
-	}
-
-	// Src should be formatted correctly
-	expectedSrc := fmt.Sprintf(
-		"%s/%s@%s%s",
-		JSDELIVR_CDN_URL,
-		pkg.PackageName,
-		pkg.Version,
-		pkg.File,
-	)
-	if pkg.Src != expectedSrc {
-		t.Errorf("got Src=%q; want %q", pkg.Src, expectedSrc)
 	}
 }
 

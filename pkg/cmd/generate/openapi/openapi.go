@@ -130,7 +130,6 @@ func apiStubData(
 	opts *Options,
 ) ([]OperationData, error) {
 	var result []OperationData
-	count := 0
 
 	count := 0
 
