@@ -4,12 +4,12 @@ The CLI for working with Algolia's docs.
 
 ## Commands
 
-`docli generate openapi`
+### `docli generate openapi`
 
 Generates OpenAPI stub files for each API endpoint,
 augmented with ACL information.
 
-`docli update cdn`
+### `docli update cdn`
 
 Updates HTML include snippets to show the latest available version.
 
