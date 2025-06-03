@@ -132,6 +132,8 @@ func apiStubData(
 	var result []OperationData
 	count := 0
 
+	count := 0
+
 	prefix := fmt.Sprintf("%s/%s", opts.OutputDirectory, opts.ApiName)
 
 	for pathPairs := doc.Model.Paths.PathItems.First(); pathPairs != nil; pathPairs = pathPairs.Next() {
