@@ -1,6 +1,7 @@
 package openapi
 
 import (
+	_ "embed"
 	"fmt"
 	"log"
 	"os"
@@ -35,17 +36,8 @@ type OperationData struct {
 	Verb           string
 }
 
-const stubTemplate = `---
-openapi: /{{.InputFilename }} {{ .Verb }} {{ .ApiPath }}
----
-{{- if .RequiresAdmin }}
-
-**Requires admin API key**
-{{- else if .Acl }}
-
-**Required ACL:** {{ .Acl }}
-{{- end }}
-`
+//go:embed stub.mdx.tmpl
+var stubTemplate string
 
 // NewOpenAPICommand returns a new instance of the `generate openapi` command.
 func NewOpenAPICommand() *cobra.Command {
