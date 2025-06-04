@@ -26,5 +26,4 @@ changelog:
       - "^test:"
 release:
   prerelease: auto
-  name_template: >-
-    docli {{ .Version }}
+  name_template: v{{ .Version }}
