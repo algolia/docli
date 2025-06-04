@@ -23,11 +23,11 @@ type Options struct {
 
 // VersionInfo represents the version information for a single version of an API client.
 type VersionInfo struct {
-	SlaStatus      string `json:"slaStatus"`
-	SupportStatus  string `json:"supportStatus"`
-	ReleaseDate    string `json:"releaseDate"`
-	SlaEndDate     string `json:"slaEndDate,omitempty"`
-	SupportEndDate string `json:"supportEndDate,omitempty"`
+	ReleaseDate string `json:"releaseDate"`
+	SlaStatus   string `json:"slaStatus"`
+	SlaEndDate  string `json:"slaEndDate,omitempty"`
+	// SupportStatus  string `json:"supportStatus"`
+	// SupportEndDate string `json:"supportEndDate,omitempty"`
 }
 
 // Version maps a version string to its version information.
@@ -72,7 +72,13 @@ func NewSlaCommand() *cobra.Command {
 }
 
 func runCommand(opts *Options) {
-	data, err := parseVersions(opts.DataFile)
+	// Read data
+	rawData, err := os.ReadFile(opts.DataFile)
+	if err != nil {
+		log.Fatalf("can't read data file: %v", err)
+	}
+
+	data, err := parseVersions(rawData)
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
@@ -99,13 +105,8 @@ func runCommand(opts *Options) {
 	}
 }
 
-// parseVersions reads a JSON file and parses it into a SlaData struct.
-func parseVersions(path string) (Clients, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read file %q: %w", path, err)
-	}
-
+// parseVersions reads a JSON file and parses it into a Clients struct.
+func parseVersions(raw []byte) (Clients, error) {
 	var data Clients
 	if err := json.Unmarshal(raw, &data); err != nil {
 		return nil, fmt.Errorf("cannot parse JSON: %w", err)
