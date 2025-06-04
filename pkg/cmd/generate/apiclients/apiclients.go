@@ -1,7 +1,6 @@
-package openapi
+package apiclients
 
 import (
-	_ "embed"
 	"fmt"
 	"log"
 	"os"
@@ -26,29 +25,43 @@ type Options struct {
 
 // OperationData holds data relevant to a single API operation stub file.
 type OperationData struct {
-	Acl            string
-	RequiresAdmin  bool
-	ApiPath        string
-	InputFilename  string
-	OutputFilename string
-	OutputPath     string
-	Verb           string
+	Acl              string
+	ApiPath          string
+	Description      string
+	InputFilename    string
+	OutputFilename   string
+	OutputPath       string
+	RequiresAdmin    bool
+	ShortDescription string
+	Summary          string
+	Verb             string
 }
 
-//go:embed stub.mdx.tmpl
-var stubTemplate string
+const methodTemplate = `---
+title: {{ .Summary }}
+description: {{ .ShortDescription }}
+---
+{{- if .RequiresAdmin }}
 
-// NewOpenApiCommand returns a new instance of the `generate openapi` command.
-func NewOpenApiCommand() *cobra.Command {
+**Requires admin API key**
+{{- else if .Acl }}
+
+**Required ACL:** {{ .Acl }}
+{{- end }}
+
+{{ .Description }}
+`
+
+// NewApiClientsCommand returns a new instance of the `generate openapi` command.
+func NewApiClientsCommand() *cobra.Command {
 	opts := &Options{}
 
 	cmd := &cobra.Command{
-		Use:     "openapi",
-		Aliases: []string{"stubs"},
-		Short:   "Generate HTTP API reference files from an OpenAPI spec",
+		Use:     "apiclients",
+		Aliases: []string{"sdk", "apiclient", "sdks"},
+		Short:   "Generate method reference pages for the API clients",
 		Long: heredoc.Doc(`
-			This command reads an OpenAPI 3 spec file and generates one MDX file per operation.
-			The command groups the operations into subdirectories by tags.
+			This command generates the MDX files for the method references of the API clients.
 		`),
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -69,35 +82,35 @@ func NewOpenApiCommand() *cobra.Command {
 func runCommand(opts *Options) {
 	specFile, err := os.ReadFile(opts.InputFileName)
 	if err != nil {
-		log.Fatalf("Error: %e", err)
+		log.Fatalf("Error: %v", err)
 	}
 
-	fmt.Printf("Generating MDX stub files for spec: %s\n", opts.InputFileName)
+	fmt.Printf("Generating MDX files for spec: %s\n", opts.InputFileName)
 	fmt.Printf("Writing output in: %s\n", opts.OutputDirectory)
 
 	opts.SpecFile = specFile
 
 	spec, err := utils.LoadSpec(opts.SpecFile)
 	if err != nil {
-		log.Fatalf("Error: %e", err)
+		log.Fatalf("Error: %v", err)
 	}
 
-	opData, err := apiStubData(spec, opts)
+	opData, err := apiOpData(spec, opts)
 	if err != nil {
-		log.Fatalf("Error: %e", err)
+		log.Fatalf("Error: %v", err)
 	}
 
-	tmpl := template.Must(template.New("stub").Parse(stubTemplate))
+	tmpl := template.Must(template.New("method").Parse(methodTemplate))
 
 	if err != nil {
-		log.Fatalf("Error: %e", err)
+		log.Fatalf("Error: %v", err)
 	}
 
 	writeApiData(opData, tmpl)
 }
 
-// apiStubData generates the MDX stub data for each OpenAPI operation in the spec.
-func apiStubData(
+// apiOpData generates the data for each OpenAPI operation in the spec.
+func apiOpData(
 	doc *libopenapi.DocumentModel[v3.Document],
 	opts *Options,
 ) ([]OperationData, error) {
@@ -124,14 +137,17 @@ func apiStubData(
 				return nil, err
 			}
 
+			short, long := splitDescription(op.Description)
+
 			data := OperationData{
-				Acl:            utils.AclToString(acl),
-				ApiPath:        pathName,
-				InputFilename:  strings.TrimPrefix(opts.InputFileName, "/"),
-				OutputFilename: utils.GetOutputFilename(op),
-				OutputPath:     utils.GetOutputPath(op, prefix),
-				RequiresAdmin:  false,
-				Verb:           opPairs.Key(),
+				Acl:              utils.AclToString(acl),
+				InputFilename:    strings.TrimPrefix(opts.InputFileName, "/"),
+				OutputFilename:   utils.GetOutputFilename(op),
+				OutputPath:       utils.GetOutputPath(op, prefix),
+				RequiresAdmin:    false,
+				Summary:          op.Summary,
+				Description:      long,
+				ShortDescription: short,
 			}
 
 			if data.Acl == "admin" {
@@ -170,4 +186,30 @@ func writeApiData(data []OperationData, template *template.Template) error {
 	}
 
 	return nil
+}
+
+// splitDescription splits the API description into two strings.
+// The first sentence is the short description, the rest is the long description.
+func splitDescription(description string) (string, string) {
+	description = strings.TrimSpace(description)
+
+	// Split by empty line
+	parts := strings.SplitN(description, "\n\n", 2)
+	if len(parts) > 1 && strings.TrimSpace(parts[0]) != "" {
+		short := strings.TrimSpace(parts[0])
+		long := strings.TrimSpace(parts[1])
+
+		return short, long
+	}
+
+	// No empty line found: split after first period
+	if idx := strings.Index(description, "."); idx != -1 {
+		short := strings.TrimSpace(description[:idx+1])
+		long := strings.TrimSpace(description[idx+1:])
+
+		return short, long
+	}
+
+	// No period: can't split
+	return description, description
 }
