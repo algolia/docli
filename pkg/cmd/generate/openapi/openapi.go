@@ -50,7 +50,7 @@ func NewOpenApiCommand() *cobra.Command {
 			This command reads an OpenAPI 3 spec file and generates one MDX file per operation.
 			The command groups the operations into subdirectories by tags.
 		`),
-		Args: cobra.MinimumNArgs(1),
+		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			opts.InputFileName = args[0]
 			opts.ApiName = utils.GetApiName(opts.InputFileName)

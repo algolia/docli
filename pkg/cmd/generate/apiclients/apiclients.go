@@ -63,7 +63,7 @@ func NewApiClientsCommand() *cobra.Command {
 		Long: heredoc.Doc(`
 			This command generates the MDX files for the method references of the API clients.
 		`),
-		Args: cobra.MinimumNArgs(1),
+		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			opts.InputFileName = args[0]
 			opts.ApiName = utils.GetApiName(opts.InputFileName)
