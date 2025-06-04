@@ -9,6 +9,10 @@ The CLI for working with Algolia's docs.
 Generates OpenAPI stub files for each API endpoint,
 augmented with ACL information.
 
+### `docli generate sla`
+
+Generates page with SLA information for API clients.
+
 ### `docli update cdn`
 
 Updates HTML include snippets to show the latest available version.
