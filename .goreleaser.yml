@@ -26,8 +26,4 @@ changelog:
 release:
   prerelease: auto
   name_template: >-
-    Algolia Doc CLI {{ .Version }}
-  footer: >-
-    ---
-
-    Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
+    docli {{ .Version }}
