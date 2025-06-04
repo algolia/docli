@@ -1,6 +1,7 @@
 package apiclients
 
 import (
+	_ "embed"
 	"fmt"
 	"log"
 	"os"
@@ -26,7 +27,6 @@ type Options struct {
 // OperationData holds data relevant to a single API operation stub file.
 type OperationData struct {
 	Acl              string
-	ApiPath          string
 	Description      string
 	InputFilename    string
 	OutputFilename   string
@@ -37,20 +37,8 @@ type OperationData struct {
 	Verb             string
 }
 
-const methodTemplate = `---
-title: {{ .Summary }}
-description: {{ .ShortDescription }}
----
-{{- if .RequiresAdmin }}
-
-**Requires admin API key**
-{{- else if .Acl }}
-
-**Required ACL:** {{ .Acl }}
-{{- end }}
-
-{{ .Description }}
-`
+//go:embed method.mdx.tmpl
+var methodTemplate string
 
 // NewApiClientsCommand returns a new instance of the `generate openapi` command.
 func NewApiClientsCommand() *cobra.Command {
