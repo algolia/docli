@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"sort"
@@ -17,6 +18,7 @@ import (
 
 type Options struct {
 	DataFile string
+	Output   string
 }
 
 // VersionInfo represents the version information for a single version of an API client.
@@ -64,6 +66,8 @@ func NewSlaCommand() *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVarP(&opts.Output, "output", "o", "", "Output file")
+
 	return cmd
 }
 
@@ -75,7 +79,22 @@ func runCommand(opts *Options) {
 
 	sorted := sortVersions(&data)
 
-	if err = renderPage(pageTemplate, sorted); err != nil {
+	funcMap := template.FuncMap{
+		"capitalize":      capitalize,
+		"getLanguageName": getLanguageName,
+	}
+
+	var output io.Writer
+	if opts.Output == "" {
+		output = os.Stdout
+	} else {
+		output, err = os.Create(opts.Output)
+		if err != nil {
+			log.Fatalf("error: %v", err)
+		}
+	}
+
+	if err = renderPage(output, pageTemplate, sorted, funcMap); err != nil {
 		log.Fatalf("error: %v", err)
 	}
 }
@@ -172,18 +191,18 @@ func getLanguageName(lang string) string {
 	return capitalize(lang)
 }
 
-func renderPage(templateString string, data []ClientEntry) error {
-	funcMap := template.FuncMap{
-		"capitalize":      capitalize,
-		"getLanguageName": getLanguageName,
-	}
-
+func renderPage(
+	w io.Writer,
+	templateString string,
+	data []ClientEntry,
+	funcMap template.FuncMap,
+) error {
 	tmpl, err := template.New("versions").Funcs(funcMap).Parse(templateString)
 	if err != nil {
 		return err
 	}
 
-	if err = tmpl.Execute(os.Stdout, data); err != nil {
+	if err = tmpl.Execute(w, data); err != nil {
 		return err
 	}
 
