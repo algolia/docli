@@ -14,20 +14,15 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Install go-task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.43.3
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Run tests
-        run: task test
+        run: go test ./...
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: 1.23
+          go-version-file: go.mod
       - uses: golangci/golangci-lint-action@v8
         with:
           version: v2.1.6
