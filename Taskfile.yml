@@ -14,3 +14,6 @@ tasks:
   test:
     desc: Test code
     cmd: go test ./...
+  release:
+    desc: Release new version
+    cmd: goreleaser release
