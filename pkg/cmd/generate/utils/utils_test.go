@@ -260,7 +260,7 @@ func mockOp(extensions *yaml.Node) v3.Operation {
 	return op
 }
 
-func TestGetAcl(t *testing.T) {
+func TestGetAcl(t *testing.T) { //nolint:funlen
 	tests := []struct {
 		name        string
 		extensions  *yaml.Node
