@@ -13,7 +13,7 @@ func NewGenerateCmd() *cobra.Command {
 		Short:   "Generate API reference docs",
 	}
 
-	command.AddCommand(openapi.NewOpenAPICommand())
+	command.AddCommand(openapi.NewOpenApiCommand())
 	command.AddCommand(sla.NewSlaCommand())
 
 	return command

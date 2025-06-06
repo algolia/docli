@@ -6,15 +6,14 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"text/template"
 
 	"github.com/MakeNowJust/heredoc"
+	"github.com/algolia/docli/pkg/cmd/generate/utils"
 	"github.com/pb33f/libopenapi"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 // Options represents the options and flags for this command.
@@ -39,8 +38,8 @@ type OperationData struct {
 //go:embed stub.mdx.tmpl
 var stubTemplate string
 
-// NewOpenAPICommand returns a new instance of the `generate openapi` command.
-func NewOpenAPICommand() *cobra.Command {
+// NewOpenApiCommand returns a new instance of the `generate openapi` command.
+func NewOpenApiCommand() *cobra.Command {
 	opts := &Options{}
 
 	cmd := &cobra.Command{
@@ -51,10 +50,10 @@ func NewOpenAPICommand() *cobra.Command {
 			This command reads an OpenAPI 3 spec file and generates one MDX file per operation.
 			The command groups the operations into subdirectories by tags.
 		`),
-		Args: cobra.MinimumNArgs(1),
+		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			opts.InputFileName = args[0]
-			opts.ApiName = getApiName(opts.InputFileName)
+			opts.ApiName = utils.GetApiName(opts.InputFileName)
 
 			runCommand(opts)
 		},
@@ -78,12 +77,12 @@ func runCommand(opts *Options) {
 
 	opts.SpecFile = specFile
 
-	spec, err := loadSpec(opts)
+	spec, err := utils.LoadSpec(opts.SpecFile)
 	if err != nil {
 		log.Fatalf("Error: %e", err)
 	}
 
-	opData, err := apiStubData(spec, opts)
+	opData, err := getApiData(spec, opts)
 	if err != nil {
 		log.Fatalf("Error: %e", err)
 	}
@@ -97,27 +96,8 @@ func runCommand(opts *Options) {
 	writeApiData(opData, tmpl)
 }
 
-// loadSpec parses the file as OpenAPI 3 spec and returns the data model.
-func loadSpec(opts *Options) (*libopenapi.DocumentModel[v3.Document], error) {
-	doc, err := libopenapi.NewDocument(opts.SpecFile)
-	if err != nil {
-		return nil, err
-	}
-
-	docModel, errors := doc.BuildV3Model()
-	if len(errors) > 0 {
-		for i := range errors {
-			fmt.Printf("error: %e\n", errors[i])
-		}
-
-		return nil, fmt.Errorf("cannot parse spec: %d errors.", len(errors))
-	}
-
-	return docModel, nil
-}
-
-// apiStubData generates the MDX stub data for each OpenAPI operation in the spec.
-func apiStubData(
+// getApiData generates the MDX stub data for each OpenAPI operation in the spec.
+func getApiData(
 	doc *libopenapi.DocumentModel[v3.Document],
 	opts *Options,
 ) ([]OperationData, error) {
@@ -139,17 +119,17 @@ func apiStubData(
 		for opPairs := pathItem.GetOperations().First(); opPairs != nil; opPairs = opPairs.Next() {
 			op := opPairs.Value()
 
-			acl, err := getAcl(op)
+			acl, err := utils.GetAcl(op)
 			if err != nil {
 				return nil, err
 			}
 
 			data := OperationData{
-				Acl:            strings.Join(acl, ","),
+				Acl:            utils.AclToString(acl),
 				ApiPath:        pathName,
 				InputFilename:  strings.TrimPrefix(opts.InputFileName, "/"),
-				OutputFilename: outputFilename(op),
-				OutputPath:     outputPath(op, prefix),
+				OutputFilename: utils.GetOutputFilename(op),
+				OutputPath:     utils.GetOutputPath(op, prefix),
 				RequiresAdmin:  false,
 				Verb:           opPairs.Key(),
 			}
@@ -190,65 +170,4 @@ func writeApiData(data []OperationData, template *template.Template) error {
 	}
 
 	return nil
-}
-
-// outputPath returns the output path for the MDX file for the given operation.
-func outputPath(op *v3.Operation, prefix string) string {
-	if len(op.Tags) > 0 {
-		return fmt.Sprintf("%s/%s", prefix, toKebabCase(op.Tags[0]))
-	}
-
-	return fmt.Sprintf("%s", prefix)
-}
-
-// outputFilename generates the filename from the operationId.
-func outputFilename(op *v3.Operation) string {
-	return fmt.Sprintf("%s.mdx", toKebabCase(op.OperationId))
-}
-
-// toKebabCase turns a string into kebab-case.
-func toKebabCase(s string) string {
-	matchFirstCap := regexp.MustCompile(`(.)([A-Z][a-z]+)`)
-	matchAllCap := regexp.MustCompile(`([a-z0-9])([A-Z])`)
-
-	out := matchFirstCap.ReplaceAllString(s, `${1}-${2}`)
-	out = matchAllCap.ReplaceAllString(out, `${1}-${2}`)
-	out = regexp.MustCompile(`[^a-zA-Z0-9]+`).ReplaceAllString(out, `-`)
-	out = strings.Trim(out, `-`)
-
-	return strings.ToLower(out)
-}
-
-// getAcl returns the ACL required to perform the given operation.
-func getAcl(op *v3.Operation) ([]string, error) {
-	node, ok := op.Extensions.Get("x-acl")
-
-	// Operations can be without ACL
-	if !ok {
-		return nil, nil
-	}
-
-	if node.Kind != yaml.SequenceNode {
-		return nil, fmt.Errorf("expected a sequence node, got kind %d", node.Kind)
-	}
-
-	var result []string
-
-	for _, child := range node.Content {
-		if child.Kind != yaml.ScalarNode {
-			return nil, fmt.Errorf("expected scalar nodes in sequence, got kind %d", child.Kind)
-		}
-
-		result = append(result, child.Value)
-	}
-
-	return result, nil
-}
-
-// getApiName returns the name of the YAML file without extension as API name.
-func getApiName(path string) string {
-	// Have to make an exception for the Analytics API
-	base := filepath.Base(strings.ReplaceAll(path, "searchstats", "analytics"))
-
-	return strings.TrimSuffix(base, filepath.Ext(base))
 }
