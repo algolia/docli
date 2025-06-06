@@ -5,7 +5,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode"
 
+	"github.com/algolia/docli/pkg/dictionary"
 	"github.com/pb33f/libopenapi"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 	"gopkg.in/yaml.v3"
@@ -44,7 +46,7 @@ func GetAcl(op *v3.Operation) ([]string, error) {
 	return result, nil
 }
 
-// AclToString returns a comma-separated string of ACL with backticks
+// AclToString returns a comma-separated string of ACL with backticks.
 func AclToString(acl []string) string {
 	backticked := make([]string, len(acl))
 	for i := range acl {
@@ -98,4 +100,24 @@ func GetOutputPath(op *v3.Operation, prefix string) string {
 // GetOutputFilename generates the filename from the operationId.
 func GetOutputFilename(op *v3.Operation) string {
 	return fmt.Sprintf("%s.mdx", ToKebabCase(op.OperationId))
+}
+
+// Capitalize returns the capitalized word.
+func Capitalize(word string) string {
+	word = strings.ToLower(word)
+	runes := []rune(word)
+	runes[0] = unicode.ToUpper(runes[0])
+
+	return string(runes)
+}
+
+// GetLanguageName returns the printable name of a programming language label.
+func GetLanguageName(lang string) string {
+	lang = strings.ToLower(lang)
+
+	if dictWord, ok := dictionary.Dictionary[lang]; ok {
+		return dictWord
+	}
+
+	return Capitalize(lang)
 }

@@ -82,7 +82,7 @@ func runCommand(opts *Options) {
 		log.Fatalf("Error: %e", err)
 	}
 
-	opData, err := apiStubData(spec, opts)
+	opData, err := getApiData(spec, opts)
 	if err != nil {
 		log.Fatalf("Error: %e", err)
 	}
@@ -96,8 +96,8 @@ func runCommand(opts *Options) {
 	writeApiData(opData, tmpl)
 }
 
-// apiStubData generates the MDX stub data for each OpenAPI operation in the spec.
-func apiStubData(
+// getApiData generates the MDX stub data for each OpenAPI operation in the spec.
+func getApiData(
 	doc *libopenapi.DocumentModel[v3.Document],
 	opts *Options,
 ) ([]OperationData, error) {

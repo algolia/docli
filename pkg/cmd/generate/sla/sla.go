@@ -8,10 +8,9 @@ import (
 	"log"
 	"os"
 	"sort"
-	"strings"
 	"text/template"
-	"unicode"
 
+	"github.com/algolia/docli/pkg/cmd/generate/utils"
 	"github.com/spf13/cobra"
 	"golang.org/x/mod/semver"
 )
@@ -86,8 +85,8 @@ func runCommand(opts *Options) {
 	sorted := sortVersions(&data)
 
 	funcMap := template.FuncMap{
-		"capitalize":      capitalize,
-		"getLanguageName": getLanguageName,
+		"capitalize":      utils.Capitalize,
+		"getLanguageName": utils.GetLanguageName,
 	}
 
 	var output io.Writer
@@ -159,37 +158,6 @@ func sortVersions(data *Clients) []ClientEntry {
 	}
 
 	return result
-}
-
-// languages is a map for translating a language id to its proper name.
-var languages = map[string]string{
-	"csharp":     "C#",
-	"javascript": "JavaScript",
-	"php":        "PHP",
-}
-
-// capitalize returns the capitalized word.
-func capitalize(word string) string {
-	word = strings.ToLower(word)
-	runes := []rune(word)
-	runes[0] = unicode.ToUpper(runes[0])
-
-	return string(runes)
-}
-
-// getLanguageName returns the printable name of a language id.
-func getLanguageName(lang string) string {
-	if lang == "" {
-		return ""
-	}
-
-	lang = strings.ToLower(lang)
-
-	if special, ok := languages[lang]; ok {
-		return special
-	}
-
-	return capitalize(lang)
 }
 
 func renderPage(
