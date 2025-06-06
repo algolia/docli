@@ -104,7 +104,6 @@ func GetOutputFilename(op *v3.Operation) string {
 
 // Capitalize returns the capitalized word.
 func Capitalize(word string) string {
-	word = strings.ToLower(word)
 	runes := []rune(word)
 	runes[0] = unicode.ToUpper(runes[0])
 
@@ -114,10 +113,7 @@ func Capitalize(word string) string {
 // GetLanguageName returns the printable name of a programming language label.
 func GetLanguageName(lang string) string {
 	lang = strings.ToLower(lang)
-
-	if dictWord, ok := dictionary.Dictionary[lang]; ok {
-		return dictWord
-	}
+	lang = dictionary.Translate(lang)
 
 	return Capitalize(lang)
 }
