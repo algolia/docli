@@ -4,9 +4,9 @@ go 1.24.3
 
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
-	github.com/pb33f/libopenapi v0.22.2
+	github.com/pb33f/libopenapi v0.22.3
 	github.com/spf13/cobra v1.9.1
-	golang.org/x/mod v0.9.0
+	golang.org/x/mod v0.25.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
