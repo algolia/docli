@@ -3,7 +3,7 @@ openapi: /{{.InputFilename }} {{ .Verb }} {{ .ApiPath }}
 ---
 {{- if .RequiresAdmin }}
 
-**Requires admin API key**
+**Requires Admin API key**
 {{- else if .Acl }}
 
 **Required ACL:** {{ .Acl }}

@@ -134,7 +134,7 @@ func getApiData(
 				Verb:           opPairs.Key(),
 			}
 
-			if data.Acl == "admin" {
+			if data.Acl == "`admin`" {
 				data.RequiresAdmin = true
 			}
 
