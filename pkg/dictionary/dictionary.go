@@ -4,7 +4,10 @@ package dictionary
 var dictionary = map[string]string{
 	"csharp":     "C#",
 	"javascript": "JavaScript",
+	"js":         "JavaScript",
 	"php":        "PHP",
+	"ts":         "TypeScript",
+	"typescript": "TypeScript",
 }
 
 // Translate returns the translated string if it's present in the dictionary, the original otherwise.

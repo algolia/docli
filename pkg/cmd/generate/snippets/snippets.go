@@ -75,7 +75,7 @@ func generateMarkdownSnippet(snippet map[string]string) string {
 	languages := sortLanguages(snippet)
 
 	for _, lang := range languages {
-		result += fmt.Sprintf("\n```%s\n", lang)
+		result += fmt.Sprintf("\n```%s %s\n", lang, utils.GetLanguageName(lang))
 		result += snippet[lang]
 		result += "\n```\n"
 	}
