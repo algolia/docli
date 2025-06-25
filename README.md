@@ -13,6 +13,10 @@ augmented with ACL information.
 
 Generates page with SLA information for API clients.
 
+### `docli generate snippets`
+
+Generate usage snippets files for API methods.
+
 ### `docli update cdn`
 
 Updates HTML include snippets to show the latest available version.

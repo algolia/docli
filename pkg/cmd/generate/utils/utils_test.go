@@ -149,6 +149,51 @@ func TestKebabCase(t *testing.T) {
 	}
 }
 
+func TestCamelCase(t *testing.T) {
+	tests := []struct {
+		name     string
+		word     string
+		expected string
+	}{
+		{
+			name:     "Test with spaces",
+			word:     "search single index",
+			expected: "searchSingleIndex",
+		},
+		{
+			name:     "Test with underscores",
+			word:     "search_single_index",
+			expected: "searchSingleIndex",
+		},
+		{
+			name:     "Test with dashes",
+			word:     "search-single-index",
+			expected: "searchSingleIndex",
+		},
+		{
+			name:     "Test with mixed stuff",
+			word:     "search-single_index now",
+			expected: "searchSingleIndexNow",
+		},
+		{
+			name:     "Test with camelCase",
+			word:     "searchSingleIndex",
+			expected: "searchSingleIndex",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := ToCamelCase(tt.word)
+			if got != tt.expected {
+				t.Errorf("Error in ToCamelCase. got %s, expected %s", got, tt.expected)
+			}
+		})
+	}
+}
+
 func TestAclToString(t *testing.T) {
 	tests := []struct {
 		name     string

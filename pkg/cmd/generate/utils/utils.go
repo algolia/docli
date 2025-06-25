@@ -69,6 +69,24 @@ func ToKebabCase(s string) string {
 	return strings.ToLower(out)
 }
 
+// ToCamelCase converts a string with underscores, dashes, or spaces to camelCase.
+func ToCamelCase(s string) string {
+	words := strings.FieldsFunc(s, func(r rune) bool {
+		return r == ' ' || r == '_' || r == '-'
+	})
+
+	if len(words) == 0 {
+		return ""
+	}
+
+	result := words[0]
+	for _, w := range words[1:] {
+		result += Capitalize(w)
+	}
+
+	return result
+}
+
 // LoadSpec parses the file as OpenAPI 3 spec and returns the data model.
 func LoadSpec(specFile []byte) (*libopenapi.DocumentModel[v3.Document], error) {
 	doc, err := libopenapi.NewDocument(specFile)
