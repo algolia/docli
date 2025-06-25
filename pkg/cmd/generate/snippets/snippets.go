@@ -58,7 +58,7 @@ func runCommand(opts *Options) {
 	for snippet, examples := range rawSnippets {
 		for name, example := range examples {
 			err := writeSnippet(
-				filepath.Join(opts.OutputDirectory, snippet),
+				filepath.Join(opts.OutputDirectory, utils.ToKebabCase(snippet)),
 				fmt.Sprintf("%s.mdx", utils.ToCamelCase(name)),
 				generateMarkdownSnippet(example),
 			)
