@@ -131,7 +131,7 @@ func TestGenerateMarkdownSnippet(t *testing.T) { //nolint:funlen
 				"go": `fmt.Println("hello")`,
 			},
 			want: "<CodeGroup>\n\n" +
-				"```go\n" +
+				"```go Go\n" +
 				"fmt.Println(\"hello\")\n" +
 				"```\n\n" +
 				"</CodeGroup>",
@@ -139,14 +139,14 @@ func TestGenerateMarkdownSnippet(t *testing.T) { //nolint:funlen
 		{
 			name: "two languages unsorted input",
 			snippet: map[string]string{
-				"py": `print("hi")`,
-				"go": `fmt.Println("hi")`,
+				"python": `print("hi")`,
+				"go":     `fmt.Println("hi")`,
 			},
 			want: "<CodeGroup>\n\n" +
-				"```go\n" +
+				"```go Go\n" +
 				"fmt.Println(\"hi\")\n" +
 				"```\n\n" +
-				"```py\n" +
+				"```python Python\n" +
 				"print(\"hi\")\n" +
 				"```\n\n" +
 				"</CodeGroup>",
@@ -159,13 +159,13 @@ func TestGenerateMarkdownSnippet(t *testing.T) { //nolint:funlen
 				"go":   `fmt.Println("hey")`,
 			},
 			want: "<CodeGroup>\n\n" +
-				"```go\n" +
+				"```go Go\n" +
 				"fmt.Println(\"hey\")\n" +
 				"```\n\n" +
-				"```js\n" +
+				"```js JavaScript\n" +
 				"console.log(\"hey\")\n" +
 				"```\n\n" +
-				"```ruby\n" +
+				"```ruby Ruby\n" +
 				"puts \"hey\"\n" +
 				"```\n\n" +
 				"</CodeGroup>",
