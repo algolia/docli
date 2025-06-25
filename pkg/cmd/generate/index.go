@@ -3,6 +3,7 @@ package generate
 import (
 	"github.com/algolia/docli/pkg/cmd/generate/openapi"
 	"github.com/algolia/docli/pkg/cmd/generate/sla"
+	"github.com/algolia/docli/pkg/cmd/generate/snippets"
 	"github.com/spf13/cobra"
 )
 
@@ -15,6 +16,7 @@ func NewGenerateCmd() *cobra.Command {
 
 	command.AddCommand(openapi.NewOpenApiCommand())
 	command.AddCommand(sla.NewSlaCommand())
+	command.AddCommand(snippets.NewSnippetsCommand())
 
 	return command
 }
