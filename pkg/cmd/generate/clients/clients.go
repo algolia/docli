@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/MakeNowJust/heredoc"
@@ -25,13 +26,20 @@ type Options struct {
 // OperationData represents relevant information about an API operation.
 type OperationData struct {
 	Acl              string
-	Summary          string
-	ShortDescription string
+	CodeSamples      []CodeSample
 	Description      string
-	RequiresAdmin    bool
 	InputFilename    string
 	OutputFilename   string
 	OutputPath       string
+	RequiresAdmin    bool
+	ShortDescription string
+	Summary          string
+}
+
+type CodeSample struct {
+	Lang   string
+	Label  string
+	Source string
 }
 
 //go:embed method.mdx.tmpl
@@ -80,7 +88,9 @@ func runCommand(opts *Options) {
 		log.Fatalf("Error: %e", err)
 	}
 
-	tmpl := template.Must(template.New("method").Parse(methodTemplate))
+	tmpl := template.Must(template.New("method").Funcs(template.FuncMap{
+		"trim": strings.TrimSpace,
+	}).Parse(methodTemplate))
 
 	writeApiData(opData, tmpl)
 }
@@ -113,12 +123,17 @@ func getApiData(
 				return nil, err
 			}
 
+			short, long := splitDescription(op.Description)
+
 			data := OperationData{
-				Acl:            utils.AclToString(acl),
-				Summary:        op.Summary,
-				OutputFilename: utils.GetOutputFilename(op),
-				OutputPath:     utils.GetOutputPath(op, prefix),
-				RequiresAdmin:  false,
+				Acl:              utils.AclToString(acl),
+				CodeSamples:      getCodeSamples(op),
+				Description:      long,
+				OutputFilename:   utils.GetOutputFilename(op),
+				OutputPath:       utils.GetOutputPath(op, prefix),
+				RequiresAdmin:    false,
+				ShortDescription: short,
+				Summary:          op.Summary,
 			}
 
 			if data.Acl == "`admin`" {
@@ -156,4 +171,47 @@ func writeApiData(data []OperationData, template *template.Template) error {
 	}
 
 	return nil
+}
+
+func splitDescription(p string) (string, string) {
+	p = strings.TrimSpace(p)
+
+	// Split by empty line
+	parts := strings.SplitN(p, "\n\n", 2)
+	if len(parts) > 1 && strings.TrimSpace(parts[0]) != "" {
+		short := strings.TrimSpace(parts[0])
+		long := strings.TrimSpace(parts[1])
+
+		return short, long
+	}
+
+	// No empty line: find first period
+	if idx := strings.Index(p, "."); idx != -1 {
+		short := strings.TrimSpace(p[:idx+1])
+		long := strings.TrimSpace(p[idx+1:])
+
+		return short, long
+	}
+
+	// No period: entire paragraph is the shortDescription
+	return p, ""
+}
+
+func getCodeSamples(op *v3.Operation) []CodeSample {
+	node, ok := op.Extensions.Get("x-codeSamples")
+	// Operations can be without code samples
+	if !ok {
+		return nil
+	}
+
+	var result []CodeSample
+
+	for _, child := range node.Content {
+		var c CodeSample
+
+		child.Decode(&c)
+		result = append(result, c)
+	}
+
+	return result
 }

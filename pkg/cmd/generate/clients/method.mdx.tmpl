@@ -1,10 +1,22 @@
 ---
 title: {{ .Summary }}
+description: {{ .ShortDescription }}
 ---
-{{- if .RequiresAdmin }}
-
+{{  if .RequiresAdmin }}
 **Requires Admin API key**
-{{- else if .Acl }}
-
+{{  else if .Acl }}
 ** Required ACL:** {{ .Acl }}
 {{- end }}
+
+{{ .Description }}
+{{  if .CodeSamples }}
+## Usage
+
+<CodeGroup>
+{{ range .CodeSamples }}
+```{{ .Lang }} {{ .Label }}
+{{ trim .Source }}
+```
+{{ end }}
+</CodeGroup>
+{{ end }}
