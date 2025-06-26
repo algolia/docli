@@ -21,7 +21,6 @@ type Options struct {
 	ApiName         string
 	InputFileName   string
 	OutputDirectory string
-	SpecFile        []byte
 }
 
 // OperationData holds data relevant to a single API operation stub file.
@@ -82,9 +81,7 @@ func runCommand(opts *Options) {
 	fmt.Printf("Generating MDX stub files for spec: %s\n", opts.InputFileName)
 	fmt.Printf("Writing output in: %s\n", opts.OutputDirectory)
 
-	opts.SpecFile = specFile
-
-	spec, err := utils.LoadSpec(opts.SpecFile)
+	spec, err := utils.LoadSpec(specFile)
 	if err != nil {
 		log.Fatalf("Error: %e", err)
 	}
