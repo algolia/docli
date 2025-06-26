@@ -1,4 +1,4 @@
-package openapi
+package clients
 
 import (
 	_ "embed"
@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"text/template"
 
 	"github.com/MakeNowJust/heredoc"
@@ -16,51 +15,42 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Options represents the options and flags for this command.
+// Options represents configuration options and CLI flags for this command.
 type Options struct {
 	ApiName         string
-	InputFileName   string
+	InputFilename   string
 	OutputDirectory string
 }
 
-// OperationData holds data relevant to a single API operation stub file.
+// OperationData represents relevant information about an API operation.
 type OperationData struct {
-	Acl            string
-	ApiPath        string
-	InputFilename  string
-	OutputFilename string
-	OutputPath     string
-	RequiresAdmin  bool
-	Title          string
-	Verb           string
+	Acl              string
+	Summary          string
+	ShortDescription string
+	Description      string
+	RequiresAdmin    bool
+	InputFilename    string
+	OutputFilename   string
+	OutputPath       string
 }
 
-//go:embed stub.mdx.tmpl
-var stubTemplate string
+//go:embed method.mdx.tmpl
+var methodTemplate string
 
-// NewOpenApiCommand returns a new instance of the `generate openapi` command.
-func NewOpenApiCommand() *cobra.Command {
+func NewClientsCommand() *cobra.Command {
 	opts := &Options{}
 
 	cmd := &cobra.Command{
-		Use:     "openapi <spec>",
-		Aliases: []string{"stubs"},
-		Short:   "Generate MDX files for the HTTP API reference",
+		Use:     "clients",
+		Aliases: []string{"c"},
+		Short:   "Generate API client reference pages from the OpenAPI spec",
 		Long: heredoc.Doc(`
-			This command reads an OpenAPI 3 spec and generates one MDX file per API operation.
-			Useful when adding new operations or changing operation summaries.
-			It doesn't delete MDX files. If you remove or rename an operation,
-			you need to update or delete its MDX file manually.
+			This command reads an OpenAPI 3 spec file and generates one MDX file per operation.
 		`),
-		Example: heredoc.Doc(`
-  		# Run from root of algolia/docs-new
-			docli gen stubs specs/search.yml -o doc/rest-api
-    `),
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			opts.InputFileName = args[0]
-			opts.ApiName = utils.GetApiName(opts.InputFileName)
-
+			opts.InputFilename = args[0]
+			opts.ApiName = utils.GetApiName(opts.InputFilename)
 			runCommand(opts)
 		},
 	}
@@ -71,14 +61,13 @@ func NewOpenApiCommand() *cobra.Command {
 	return cmd
 }
 
-// runCommand runs the `generate openapi` command.
 func runCommand(opts *Options) {
-	specFile, err := os.ReadFile(opts.InputFileName)
+	specFile, err := os.ReadFile(opts.InputFilename)
 	if err != nil {
 		log.Fatalf("Error: %e", err)
 	}
 
-	fmt.Printf("Generating MDX stub files for spec: %s\n", opts.InputFileName)
+	fmt.Printf("Generating API client references for spec: %s\n", opts.InputFilename)
 	fmt.Printf("Writing output in: %s\n", opts.OutputDirectory)
 
 	spec, err := utils.LoadSpec(specFile)
@@ -91,12 +80,12 @@ func runCommand(opts *Options) {
 		log.Fatalf("Error: %e", err)
 	}
 
-	tmpl := template.Must(template.New("stub").Parse(stubTemplate))
+	tmpl := template.Must(template.New("method").Parse(methodTemplate))
 
 	writeApiData(opData, tmpl)
 }
 
-// getApiData generates the MDX stub data for each OpenAPI operation in the spec.
+// getApiData reads the OpenAPI spec and parses the operation data.
 func getApiData(
 	doc *libopenapi.DocumentModel[v3.Document],
 	opts *Options,
@@ -126,13 +115,10 @@ func getApiData(
 
 			data := OperationData{
 				Acl:            utils.AclToString(acl),
-				ApiPath:        pathName,
-				InputFilename:  normalizePath(opts.InputFileName),
+				Summary:        op.Summary,
 				OutputFilename: utils.GetOutputFilename(op),
 				OutputPath:     utils.GetOutputPath(op, prefix),
 				RequiresAdmin:  false,
-				Title:          strings.TrimSpace(op.Summary),
-				Verb:           opPairs.Key(),
 			}
 
 			if data.Acl == "`admin`" {
@@ -144,16 +130,15 @@ func getApiData(
 		}
 	}
 
-	fmt.Printf("Spec %s has %d operations.\n", opts.InputFileName, count)
+	fmt.Printf("Spec %s has %d operations.\n", opts.InputFilename, count)
 
 	return result, nil
 }
 
-// writeApiData writes the OpenAPI data of a single operation to an MDX stub file.
+// writeApiData writes the OpenAPI data to MDX files.
 func writeApiData(data []OperationData, template *template.Template) error {
 	for _, item := range data {
-		err := os.MkdirAll(item.OutputPath, 0o755)
-		if err != nil {
+		if err := os.MkdirAll(item.OutputPath, 0o755); err != nil {
 			return err
 		}
 
@@ -171,12 +156,4 @@ func writeApiData(data []OperationData, template *template.Template) error {
 	}
 
 	return nil
-}
-
-// normalizePath strips any leading character from the input string and returns it with a leading slash.
-func normalizePath(input string) string {
-	input = strings.TrimPrefix(input, "./")
-	input = strings.TrimPrefix(input, "/")
-
-	return "/" + input
 }

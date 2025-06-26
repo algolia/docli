@@ -1,0 +1,10 @@
+---
+title: {{ .Summary }}
+---
+{{- if .RequiresAdmin }}
+
+**Requires Admin API key**
+{{- else if .Acl }}
+
+** Required ACL:** {{ .Acl }}
+{{- end }}

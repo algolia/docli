@@ -3,6 +3,7 @@ package generate
 import (
 	"github.com/MakeNowJust/heredoc"
 	"github.com/algolia/docli/pkg/cmd/generate/cdn"
+	"github.com/algolia/docli/pkg/cmd/generate/clients"
 	"github.com/algolia/docli/pkg/cmd/generate/openapi"
 	"github.com/algolia/docli/pkg/cmd/generate/sla"
 	"github.com/algolia/docli/pkg/cmd/generate/snippets"
@@ -27,6 +28,7 @@ func NewGenerateCmd() *cobra.Command {
 		`),
 	}
 
+	command.AddCommand(clients.NewClientsCommand())
 	command.AddCommand(openapi.NewOpenApiCommand())
 	command.AddCommand(sla.NewSlaCommand())
 	command.AddCommand(snippets.NewSnippetsCommand())
