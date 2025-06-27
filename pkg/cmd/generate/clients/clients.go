@@ -31,6 +31,8 @@ type OperationData struct {
 	InputFilename    string
 	OutputFilename   string
 	OutputPath       string
+	Params           []Parameter
+	RequestBody      RequestBody
 	RequiresAdmin    bool
 	ShortDescription string
 	Summary          string
@@ -40,6 +42,17 @@ type CodeSample struct {
 	Lang   string
 	Label  string
 	Source string
+}
+
+type Parameter struct {
+	Name        string
+	Description string
+	Required    bool
+}
+
+type RequestBody struct {
+	Name        string
+	Description string
 }
 
 //go:embed method.mdx.tmpl
@@ -131,7 +144,9 @@ func getApiData(
 				Description:      long,
 				OutputFilename:   utils.GetOutputFilename(op),
 				OutputPath:       utils.GetOutputPath(op, prefix),
+				Params:           getParameters(op),
 				RequiresAdmin:    false,
+				RequestBody:      getRequestBody(op),
 				ShortDescription: short,
 				Summary:          op.Summary,
 			}
@@ -214,4 +229,28 @@ func getCodeSamples(op *v3.Operation) []CodeSample {
 	}
 
 	return result
+}
+
+func getParameters(op *v3.Operation) []Parameter {
+	var result []Parameter
+
+	for _, p := range op.Parameters {
+		param := Parameter{
+			Name:        p.Name,
+			Description: p.Description,
+		}
+		if p.Required != nil {
+			param.Required = *p.Required
+		}
+
+		result = append(result, param)
+	}
+
+	return result
+}
+
+func getRequestBody(op *v3.Operation) RequestBody {
+	return RequestBody{
+		Description: "",
+	}
 }

@@ -19,4 +19,22 @@ description: {{ .ShortDescription }}
 ```
 {{ end }}
 </CodeGroup>
+{{- end }}
+{{- if or .Params .RequestBody}}
+
+## Parameters
+{{ range .Params }}
+<ParamField body="{{ .Name }}"{{ if .Required }} required{{ end }}>
+
+{{ trim .Description }}
+
+</ParamField>
+{{ end }}
+{{ if .RequestBody }}
+<ParamField body="OPTION">
+
+{{ trim .Description }}
+
+</ParamField>
+{{ end }}
 {{ end }}
