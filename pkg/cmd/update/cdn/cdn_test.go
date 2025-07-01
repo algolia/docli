@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestReadData(t *testing.T) { //nolint:funlen
+func TestReadData(t *testing.T) {
 	type want struct {
 		packages []Package
 		err      bool

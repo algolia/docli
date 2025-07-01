@@ -114,7 +114,7 @@ func TestSortLanguages(t *testing.T) {
 	}
 }
 
-func TestGenerateMarkdownSnippet(t *testing.T) { //nolint:funlen
+func TestGenerateMarkdownSnippet(t *testing.T) {
 	tests := []struct {
 		name    string
 		snippet map[string]string
