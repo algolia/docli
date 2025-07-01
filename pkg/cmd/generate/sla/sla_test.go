@@ -81,7 +81,7 @@ func TestRenderVersionsFile(t *testing.T) {
 					},
 				},
 			},
-			expected: `export sdkVersions ={
+			expected: `export const sdkVersions = {
   csharp: {
     v7: "7.2.3",
     v6: "6.5.1",
@@ -103,7 +103,7 @@ func TestRenderVersionsFile(t *testing.T) {
 					},
 				},
 			},
-			expected: `export sdkVersions ={
+			expected: `export const sdkVersions = {
   go: {
     v2: "2.0.0",
   },
