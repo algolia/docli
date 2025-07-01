@@ -9,7 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestGetLanguageName(t *testing.T) { //nolint:funlen
+func TestGetLanguageName(t *testing.T) {
 	tests := []struct {
 		name     string
 		label    string
@@ -305,7 +305,7 @@ func mockOp(extensions *yaml.Node) v3.Operation {
 	return op
 }
 
-func TestGetAcl(t *testing.T) { //nolint:funlen
+func TestGetAcl(t *testing.T) {
 	tests := []struct {
 		name        string
 		extensions  *yaml.Node

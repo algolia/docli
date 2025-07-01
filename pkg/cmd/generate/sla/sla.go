@@ -16,8 +16,9 @@ import (
 )
 
 type Options struct {
-	DataFile string
-	Output   string
+	DataFile     string
+	Output       string
+	VersionsFile string
 }
 
 // VersionInfo represents the version information for a single version of an API client.
@@ -25,8 +26,6 @@ type VersionInfo struct {
 	ReleaseDate string `json:"releaseDate"`
 	SlaStatus   string `json:"slaStatus"`
 	SlaEndDate  string `json:"slaEndDate,omitempty"`
-	// SupportStatus  string `json:"supportStatus"`
-	// SupportEndDate string `json:"supportEndDate,omitempty"`
 }
 
 // Version maps a version string to its version information.
@@ -66,6 +65,8 @@ func NewSlaCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&opts.Output, "output", "o", "", "Output file")
+	cmd.Flags().
+		StringVarP(&opts.VersionsFile, "versions", "v", "", "Generate file with latest versions")
 
 	return cmd
 }
@@ -102,6 +103,18 @@ func runCommand(opts *Options) {
 	if err = renderPage(output, pageTemplate, sorted, funcMap); err != nil {
 		log.Fatalf("error: %v", err)
 	}
+
+	var versionsOutput io.Writer
+	if opts.VersionsFile == "" {
+		versionsOutput = os.Stdout
+	} else {
+		versionsOutput, err = os.Create(opts.VersionsFile)
+		if err != nil {
+			log.Fatalf("error: %v", err)
+		}
+	}
+
+	renderVersionsFile(versionsOutput, sorted)
 }
 
 // parseVersions reads a JSON file and parses it into a Clients struct.
@@ -176,4 +189,27 @@ func renderPage(
 	}
 
 	return nil
+}
+
+func renderVersionsFile(w io.Writer, data []ClientEntry) {
+	fmt.Fprintln(w, "export const sdkVersions = {")
+
+	for _, client := range data {
+		fmt.Fprintf(w, "  %s: {\n", client.Language)
+
+		seenMajors := make(map[string]bool)
+
+		for _, ver := range client.Versions {
+			major := semver.Major("v" + ver.Version)
+			if !seenMajors[major] {
+				seenMajors[major] = true
+
+				fmt.Fprintf(w, "    %s: \"%s\",\n", major, ver.Version)
+			}
+		}
+
+		fmt.Fprintln(w, "  },")
+	}
+
+	fmt.Fprintln(w, "};")
 }

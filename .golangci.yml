@@ -6,6 +6,12 @@ linters:
     - mnd
     - prealloc
     - testpackage
+  exclusions:
+    warn-unused: true
+    rules:
+      - path: _test\.go
+        linters:
+          - funlen
 formatters:
   enable:
     - gofmt
