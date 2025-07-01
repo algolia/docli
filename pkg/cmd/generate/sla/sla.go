@@ -104,17 +104,14 @@ func runCommand(opts *Options) {
 		log.Fatalf("error: %v", err)
 	}
 
-	var versionsOutput io.Writer
-	if opts.VersionsFile == "" {
-		versionsOutput = os.Stdout
-	} else {
-		versionsOutput, err = os.Create(opts.VersionsFile)
+	if opts.VersionsFile != "" {
+		versionsOutput, err := os.Create(opts.VersionsFile)
 		if err != nil {
 			log.Fatalf("error: %v", err)
 		}
-	}
 
-	renderVersionsFile(versionsOutput, sorted)
+		renderVersionsFile(versionsOutput, sorted)
+	}
 }
 
 // parseVersions reads a JSON file and parses it into a Clients struct.
