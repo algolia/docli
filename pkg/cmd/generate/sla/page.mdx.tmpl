@@ -6,9 +6,9 @@ description: See which versions of Algolia's API clients are covered by SLA.
 
 Versions of the API clients not listed on this page aren't covered by the [Algolia Service Level Agreement (SLA)](https://www.algolia.com/policies/sla).
 
-<AccordionGroup>
+<Tabs>
 {{ range . }}
-<Accordion title="{{ getLanguageName .Language }}">
+<Tab title="{{ getLanguageName .Language }}">
 
 <table className="w-full">
 <thead>
@@ -35,6 +35,6 @@ Versions of the API clients not listed on this page aren't covered by the [Algol
 </tbody>
 </table>
 
-</Accordion>
+</Tab>
 {{ end }}
-</AccordionGroup>
+</Tabs>
