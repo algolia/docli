@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/algolia/docli/pkg/cmd/generate/utils"
@@ -85,7 +86,7 @@ func generateMarkdownSnippet(snippet map[string]string) string {
 
 	for _, lang := range languages {
 		result += fmt.Sprintf("\n```%s %s\n", lang, utils.GetLanguageName(lang))
-		result += snippet[lang]
+		result += strings.ReplaceAll(snippet[lang], "<YOUR_INDEX_NAME>", "ALGOLIA_INDEX_NAME")
 		result += "\n```\n"
 	}
 
