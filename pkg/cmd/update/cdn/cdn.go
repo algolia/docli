@@ -81,6 +81,10 @@ func runCommand(opts *Options) {
 		log.Fatalf("error: %e", err)
 	}
 
+	if err = os.MkdirAll(opts.OutputDirectory, 0o755); err != nil {
+		log.Fatalf("error: %e", err)
+	}
+
 	for _, pkg := range data {
 		if err = getLatestVersion(JSDELIVR_API_URL, &pkg); err != nil {
 			log.Fatalf("error: %v", err)
