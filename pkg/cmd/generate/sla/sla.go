@@ -64,9 +64,10 @@ func NewSlaCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&opts.Output, "output", "o", "", "Output file")
 	cmd.Flags().
-		StringVarP(&opts.VersionsFile, "versions", "v", "", "Generate file with latest versions")
+		StringVarP(&opts.Output, "output", "o", "", "MDX file for listing the supported versions.")
+	cmd.Flags().
+		StringVar(&opts.VersionsFile, "versions-snippets-file", "", "Generate snippets file for referencing version numbers")
 
 	return cmd
 }
