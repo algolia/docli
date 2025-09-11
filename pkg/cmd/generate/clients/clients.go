@@ -11,6 +11,7 @@ import (
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/algolia/docli/pkg/cmd/generate/utils"
+	"github.com/algolia/docli/pkg/dictionary"
 	"github.com/pb33f/libopenapi"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 	"github.com/spf13/cobra"
@@ -225,6 +226,9 @@ func getCodeSamples(op *v3.Operation) []CodeSample {
 		var c CodeSample
 
 		child.Decode(&c)
+
+		c.Lang = dictionary.NormalizeLang(c.Lang)
+
 		result = append(result, c)
 	}
 
@@ -251,6 +255,6 @@ func getParameters(op *v3.Operation) []Parameter {
 
 func getRequestBody(op *v3.Operation) RequestBody {
 	return RequestBody{
-		Description: "",
+		Description: "Unknown",
 	}
 }

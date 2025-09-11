@@ -37,3 +37,39 @@ func TestTranslate(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalize(t *testing.T) {
+	tests := []struct {
+		name     string
+		lang     string
+		expected string
+	}{
+		{
+			name:     "Normalize csharp",
+			lang:     "csharp",
+			expected: "cs",
+		},
+		{
+			name:     "Don't normalize C#",
+			lang:     "C#",
+			expected: "C#",
+		},
+		{
+			name:     "Word not in dictionary",
+			lang:     "python",
+			expected: "python",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := NormalizeLang(tt.lang)
+
+			if got != tt.expected {
+				t.Errorf("Error in normalize: got %s, expected %s", got, tt.expected)
+			}
+		})
+	}
+}
