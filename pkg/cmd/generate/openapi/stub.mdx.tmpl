@@ -1,5 +1,6 @@
 ---
-openapi: /{{.InputFilename }} {{ .Verb }} {{ .ApiPath }}
+title: {{ .Title }}
+openapi: {{ .InputFilename }} {{ .Verb }} {{ .ApiPath }}
 ---
 {{- if .RequiresAdmin }}
 

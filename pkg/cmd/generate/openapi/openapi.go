@@ -27,11 +27,12 @@ type Options struct {
 // OperationData holds data relevant to a single API operation stub file.
 type OperationData struct {
 	Acl            string
-	RequiresAdmin  bool
 	ApiPath        string
 	InputFilename  string
 	OutputFilename string
 	OutputPath     string
+	RequiresAdmin  bool
+	Title          string
 	Verb           string
 }
 
@@ -127,10 +128,11 @@ func getApiData(
 			data := OperationData{
 				Acl:            utils.AclToString(acl),
 				ApiPath:        pathName,
-				InputFilename:  strings.TrimPrefix(opts.InputFileName, "/"),
+				InputFilename:  normalizePath(opts.InputFileName),
 				OutputFilename: utils.GetOutputFilename(op),
 				OutputPath:     utils.GetOutputPath(op, prefix),
 				RequiresAdmin:  false,
+				Title:          strings.TrimSpace(op.Summary),
 				Verb:           opPairs.Key(),
 			}
 
@@ -170,4 +172,12 @@ func writeApiData(data []OperationData, template *template.Template) error {
 	}
 
 	return nil
+}
+
+// normalizePath strips any leading character from the input string and returns it with a leading slash.
+func normalizePath(input string) string {
+	input = strings.TrimPrefix(input, "./")
+	input = strings.TrimPrefix(input, "/")
+
+	return "/" + input
 }
