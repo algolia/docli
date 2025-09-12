@@ -65,10 +65,14 @@ docli gen cdn -o snippets/autocomplete/includes -d cdn.yml -t templates
 
 **Flags**
 
-`-d, --data string`       Data file with package information. (default: `cdn.yml`)
-`-h, --help`              Help for this command
-`-o, --output string`     Output directory for generated files (default: `out`)
+`-d, --data string`  Data file with package information. (default: `cdn.yml`)
+
+`-h, --help`  Help for this command
+
+`-o, --output string`  Output directory for generated files (default: `out`)
+
 `-t, --templates string`  Directory with template files for interpolation. (default: `templates`)
+
 
 ### `docli generate openapi`
 
@@ -94,8 +98,10 @@ docli gen stubs specs/search.yml -o doc/rest-api
 
 **Flags**
 
-`-h, --help`           Help for this command
+`-h, --help`  Help for this command
+
 `-o, --output string`  Output directory for generated MDX files (default: `out`)
+
 
 ### `docli generate sla`
 
@@ -122,9 +128,12 @@ docli gen sla specs/versions-history-with-sla-and-support-policy.json \
 
 **Flags**
 
-`-h, --help`                       Help for this command
-`-o, --output string`              MDX file for listing the supported versions
+`-h, --help`  Help for this command
+
+`-o, --output string`  MDX file for listing the supported versions
+
 `--versions-snippets-file string`  Snippet file with latest released version numbers
+
 
 ### `docli generate snippets`
 
@@ -146,6 +155,8 @@ docli gen snippets specs/search-snippets.json -o snippets/openapi-snippets
 
 **Flags**
 
-`-h, --help`           Help for this command
+`-h, --help`  Help for this command
+
 `-o, --output string`  Output directory for generated MDX files (default: `out`)
+
 
