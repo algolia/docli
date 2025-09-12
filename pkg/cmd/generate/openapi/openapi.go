@@ -44,13 +44,19 @@ func NewOpenApiCommand() *cobra.Command {
 	opts := &Options{}
 
 	cmd := &cobra.Command{
-		Use:     "openapi",
+		Use:     "openapi <spec>",
 		Aliases: []string{"stubs"},
-		Short:   "Generate HTTP API reference files from an OpenAPI spec",
+		Short:   "Generate MDX files for the HTTP API reference",
 		Long: heredoc.Doc(`
-			This command reads an OpenAPI 3 spec file and generates one MDX file per operation.
-			The command groups the operations into subdirectories by tags.
+			This command reads an OpenAPI 3 spec and generates one MDX file per API operation.
+			Useful when adding new operations or changing operation summaries.
+			It doesn't delete MDX files. If you remove or rename an operation,
+			you need to update or delete its MDX file manually.
 		`),
+		Example: heredoc.Doc(`
+  		# Run from root of algolia/docs-new
+			docli gen stubs specs/search.yml -o doc/rest-api
+    `),
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			opts.InputFileName = args[0]
