@@ -1,0 +1,30 @@
+name: Update README
+on:
+  push:
+    paths:
+      - "pkg/cmd/**"
+      - "internal/docs/**"
+permissions:
+  contents: write
+jobs:
+  readme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Generate new README
+        run: go run ./internal/docs
+      - name: Create new PR if changes
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "docs: update README"
+          title: "docs: update README"
+          body: |
+            This PR was auto-generated because relevant code changed.
+
+            - Generator: `go run ./tools/gen-docs`
+          branch: chore/update-readme
+          add-paths: |
+            README.md

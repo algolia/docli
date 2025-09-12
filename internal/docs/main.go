@@ -7,6 +7,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/algolia/docli/pkg/cmd/root"
 	"github.com/spf13/cobra"
@@ -90,18 +91,40 @@ func writeCommandSection(buf *bytes.Buffer, c *cobra.Command, depth int) {
 
 	// Flags
 	if c.Flags().HasFlags() {
+		// Somehow c.Flags() doesn't include the help tag
 		fmt.Fprintf(buf, "**Flags**\n\n")
-		writeFlags(buf, c.Flags())
-		// Somehow c.Flags() doesn't include the help flag
-		writeFlags(buf, c.InheritedFlags())
+
+		allFlags := MergeFlags(c)
+		writeFlags(buf, allFlags)
 		fmt.Fprint(buf, "\n")
 	}
 
 	// Subcommands
-	sub := c.Commands()
-	visible := sub[:0]
+	writeSubcommands(buf, c.Commands(), depth)
+}
 
-	for _, s := range sub {
+func MergeFlags(cmd *cobra.Command) *pflag.FlagSet {
+	fs := pflag.NewFlagSet(cmd.Name(), pflag.ContinueOnError)
+
+	// Add local flags
+	cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
+		fs.AddFlag(f)
+	})
+
+	// Add inherited flags (skip duplicates)
+	cmd.InheritedFlags().VisitAll(func(f *pflag.Flag) {
+		if fs.Lookup(f.Name) == nil {
+			fs.AddFlag(f)
+		}
+	})
+
+	return fs
+}
+
+func writeSubcommands(buf *bytes.Buffer, commands [](*cobra.Command), depth int) {
+	visible := commands[:0]
+
+	for _, s := range commands {
 		if !s.Hidden {
 			visible = append(visible, s)
 		}
@@ -119,78 +142,40 @@ func writeCommandSection(buf *bytes.Buffer, c *cobra.Command, depth int) {
 }
 
 func writeFlags(buf *bytes.Buffer, flags *pflag.FlagSet) {
-	var lines []string
+	w := tabwriter.NewWriter(buf, 0, 0, 2, ' ', tabwriter.StripEscape)
+	defer w.Flush()
 
 	flags.VisitAll(func(f *pflag.Flag) {
 		if f.Hidden {
 			return
 		}
 
-		var signature strings.Builder
-
-		signature.WriteString("`")
-
-		sh := f.Shorthand
-		if sh != "" {
-			signature.WriteString("-")
-			signature.WriteString(sh)
-			signature.WriteString(", ")
-		}
-
-		signature.WriteString("--")
-		signature.WriteString(f.Name)
-
-		// Show value hint for non-bool flags
-		if f.Value != nil && f.Value.Type() != "bool" {
-			signature.WriteString(" ")
-			signature.WriteString(valueHint(f))
-		}
-
-		signature.WriteString("`")
-
+		signature := flagSignature(f)
 		usage := strings.TrimSpace(f.Usage)
 
-		// Default value (omit when empty/false unless explicitly set)
-		if strings.TrimSpace(f.DefValue) == "" || f.DefValue == "false" {
-			lines = append(lines, fmt.Sprintf("- %s — %s", signature.String(), usage))
-		} else {
-			lines = append(
-				lines,
-				fmt.Sprintf("- %s — %s (default: `%s`)", signature.String(), usage, f.DefValue),
-			)
+		// Append default value
+		if f.DefValue != "false" && f.DefValue != "" {
+			usage += fmt.Sprintf(" (default: `%s`)", f.DefValue)
 		}
+
+		fmt.Fprintf(w, "%s\t%s\n", signature, usage)
 	})
-
-	if len(lines) == 0 {
-		return
-	}
-
-	for _, l := range lines {
-		fmt.Fprintln(buf, l)
-	}
 }
 
-func valueHint(f *pflag.Flag) string {
-	t := f.Value.Type()
-	switch t {
-	case "stringSlice":
-		return "string..."
-	case "intSlice":
-		return "int..."
-	case "stringArray":
-		return "string..."
-	case "duration":
-		return "duration"
-	case "count":
-		return "n"
-	default:
-		// For bool, we don't add a value (handled by caller); for others show <type>
-		if t == "bool" {
-			return ""
-		}
+func flagSignature(f *pflag.Flag) string {
+	sh, name := f.Shorthand, f.Name
+	typ := ""
 
-		return t
+	if f.Value != nil && f.Value.Type() != "bool" {
+		typ = " " + f.Value.Type()
 	}
+
+	if sh != "" {
+		// \xFF ... \xFF sections are not counted for alignment
+		return fmt.Sprintf("\xFF`-%s, --%s%s`\xFF", sh, name, typ)
+	}
+
+	return fmt.Sprintf("\xFF`--%s%s`\xFF", name, typ)
 }
 
 func joinNames(cmds []*cobra.Command) string {

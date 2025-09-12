@@ -17,3 +17,7 @@ tasks:
   release:
     desc: Release new version
     cmd: goreleaser release
+  readme:
+    desc: Update README.md
+    cmd: go run ./internal/docs
+
