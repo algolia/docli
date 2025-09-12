@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/MakeNowJust/heredoc"
 	"github.com/algolia/docli/pkg/cmd/generate/utils"
 	"github.com/spf13/cobra"
 )
@@ -24,9 +25,17 @@ func NewSnippetsCommand() *cobra.Command {
 	opts := &Options{}
 
 	cmd := &cobra.Command{
-		Use:   "snippets",
-		Short: "Generate snippets from an OpenAPI snippet file.",
-		Args:  cobra.ExactArgs(1),
+		Use:   "snippets <snippets>",
+		Short: "Generate API client example snippets from an OpenAPI snippet file",
+		Long: heredoc.Doc(`
+			This command reads a data file with API client usage snippets.
+			It generates an MDX file for each snippet so you can include them in the docs.
+		`),
+		Example: heredoc.Doc(`
+			# Run from root of algolia/docs-new
+			docli gen snippets specs/search-snippets.json -o snippets/openapi-snippets
+		`),
+		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			opts.SnippetsFile = args[0]
 			runCommand(opts)

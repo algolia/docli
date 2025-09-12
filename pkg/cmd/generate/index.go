@@ -1,6 +1,8 @@
 package generate
 
 import (
+	"github.com/MakeNowJust/heredoc"
+	"github.com/algolia/docli/pkg/cmd/generate/cdn"
 	"github.com/algolia/docli/pkg/cmd/generate/openapi"
 	"github.com/algolia/docli/pkg/cmd/generate/sla"
 	"github.com/algolia/docli/pkg/cmd/generate/snippets"
@@ -11,12 +13,24 @@ func NewGenerateCmd() *cobra.Command {
 	command := &cobra.Command{
 		Use:     "generate",
 		Aliases: []string{"gen", "g"},
-		Short:   "Generate API reference docs",
+		Short:   "Generate content from data files",
+		Long: heredoc.Doc(`
+			Each command reads data from a file,
+			interpolates them into a template,
+			and writes on or more MDX files.
+			Most templates are built into the CLI,
+			some can be provided at runtime.
+			
+			This is useful when running in CI whenever data files are updated.
+
+			See the individual subcommands to learn what content you can generate.
+		`),
 	}
 
 	command.AddCommand(openapi.NewOpenApiCommand())
 	command.AddCommand(sla.NewSlaCommand())
 	command.AddCommand(snippets.NewSnippetsCommand())
+	command.AddCommand(cdn.NewCdnCommand())
 
 	return command
 }

@@ -10,6 +10,7 @@ import (
 	"sort"
 	"text/template"
 
+	"github.com/MakeNowJust/heredoc"
 	"github.com/algolia/docli/pkg/cmd/generate/utils"
 	"github.com/spf13/cobra"
 	"golang.org/x/mod/semver"
@@ -55,9 +56,21 @@ func NewSlaCommand() *cobra.Command {
 	opts := &Options{}
 
 	cmd := &cobra.Command{
-		Use:   "sla",
-		Short: "Generate page with SLA information",
-		Args:  cobra.ExactArgs(1),
+		Use:   "sla <data>",
+		Short: "Generate page with SLA information for API clients",
+		Long: heredoc.Doc(`
+			This command reads a data file with API client versions and SLA status,
+			then generates an MDX file listing supported versions.
+
+			Use --versions-snippets-file to also generate a snippet file,
+			so you can include the latest client version in the docs.
+		`),
+		Example: heredoc.Doc(`
+			# Run from root of algolia/docs-new
+			docli gen sla specs/versions-history-with-sla-and-support-policy.json \
+		  	-o doc/libraries/sdk/versions.mdx \
+				--versions-snippets-file snippets/sdk/versions.mdx`),
+		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			opts.DataFile = args[0]
 			runCommand(opts)
@@ -65,9 +78,9 @@ func NewSlaCommand() *cobra.Command {
 	}
 
 	cmd.Flags().
-		StringVarP(&opts.Output, "output", "o", "", "MDX file for listing the supported versions.")
+		StringVarP(&opts.Output, "output", "o", "", "MDX file for listing the supported versions")
 	cmd.Flags().
-		StringVar(&opts.VersionsFile, "versions-snippets-file", "", "Generate snippets file for referencing version numbers")
+		StringVar(&opts.VersionsFile, "versions-snippets-file", "", "Snippet file with latest released version numbers")
 
 	return cmd
 }

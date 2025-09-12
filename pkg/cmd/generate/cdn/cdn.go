@@ -49,15 +49,23 @@ func NewCdnCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "cdn",
-		Short: "Update HTML import snippets with latest versions.",
+		Short: "Generate HTML import snippets with latest versions",
 		Long: heredoc.Doc(`
-			This command updates the reusable snippets for HTML imports of various assets.
+			This command generates import snippets with version numbers.
 
-			Add templates for the code snippets in the templates directory.
-			Add the data for each package to the cdn.yml file.
-			The name used in the cdn.yml file for each package needs to match a corresponding template name.
-			For example if the name is autocomplete_js, 
-			provide a template autocomplete_js.mdx.tmpl (file extensions are arbitrary).
+			When documenting code with HTML <link> or <script> tags for remote resources,
+			it's best to specify a specific version and the matching SRI hash.
+
+			The command reads a data file (default: cdn.yml),
+			iterates over the entries,
+			and applies matching templates from the templates directory.
+			Each package name in cdn.yml must match a template name.
+			For example, if the package is autocomplete_js,
+			the command looks for the template file autocomplete_js.mdx.tmpl.
+		`),
+		Example: heredoc.Doc(`
+			# Run from the root of algolia/docs-new
+			docli gen cdn -o snippets/autocomplete/includes -d cdn.yml -t templates
 		`),
 		Run: func(cmd *cobra.Command, _ []string) {
 			runCommand(opts)
@@ -69,7 +77,7 @@ func NewCdnCommand() *cobra.Command {
 	cmd.Flags().
 		StringVarP(&opts.TemplateDir, "templates", "t", "templates", "Directory with template files for interpolation.")
 	cmd.Flags().
-		StringVarP(&opts.OutputDirectory, "output", "o", "snippets", "Output directory for generated files")
+		StringVarP(&opts.OutputDirectory, "output", "o", "out", "Output directory for generated files")
 
 	return cmd
 }
