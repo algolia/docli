@@ -158,7 +158,7 @@ func writeFlags(buf *bytes.Buffer, flags *pflag.FlagSet) {
 			usage += fmt.Sprintf(" (default: `%s`)", f.DefValue)
 		}
 
-		fmt.Fprintf(w, "%s\t%s\n", signature, usage)
+		fmt.Fprintf(w, "%s\t%s\n\n", signature, usage)
 	})
 }
 
