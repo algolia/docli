@@ -1,5 +1,34 @@
-# `docli`
+# DOCLI
 
+A command line tool for generating content for the Algolia documentation on Mintlify.
+
+## Installation
+
+Go to the [GitHub releases](https://github.com/algolia/docli/releases/latest) page
+and download the latest release that's suitable for your computer.
+
+Then, unpack the `tar.gz` file, for example, with `tar xvf docli_*tar.gz`.
+
+Optional: if you're using command completion, run `./docli completion --help`
+for more information about activating it for your shell.
+
+## Development
+
+> [!NOTE]
+> The following instructions require [devbox](https://www.jetify.com/devbox) and [direnv](https://direnv.net/).
+
+1. Clone the `github.com/algolia/docli` repository.
+1. Change into the cloned repository: `cd docli`.
+   The dependencies are installed automatically.
+
+   (To install the dependencies manually, see the list in `devbox.json`).
+
+1. Build the project, by running `task build`.
+   See the other available tasks by running `task -l`.
+
+## Reference
+
+<!-- auto-generated -->
 ```sh
 docli
 ```
@@ -14,7 +43,7 @@ See the individual commands to learn what you can do with it.
 
 **Commands:** `generate`
 
-## `docli generate`
+### `docli generate`
 
 ```sh
 docli generate
@@ -34,9 +63,9 @@ See the individual subcommands to learn what content you can generate.
 
 **Aliases:** `gen`, `g`
 
-**Subcommands:** `cdn`, `openapi`, `sla`, `snippets`
+**Subcommands:** `cdn`, `clients`, `openapi`, `sla`, `snippets`
 
-### `docli generate cdn`
+#### `docli generate cdn`
 
 ```sh
 docli generate cdn [flags]
@@ -74,7 +103,26 @@ docli gen cdn -o snippets/autocomplete/includes -d cdn.yml -t templates
 `-t, --templates string`  Directory with template files for interpolation. (default: `templates`)
 
 
-### `docli generate openapi`
+#### `docli generate clients`
+
+```sh
+docli generate clients [flags]
+```
+
+Generate API client reference pages from the OpenAPI spec.
+
+This command reads an OpenAPI 3 spec file and generates one MDX file per operation.
+
+**Aliases:** `c`
+
+**Flags**
+
+`-h, --help`  Help for this command
+
+`-o, --output string`  Output directory for generated MDX files (default: `out`)
+
+
+#### `docli generate openapi`
 
 ```sh
 docli generate openapi <spec> [flags]
@@ -103,7 +151,7 @@ docli gen stubs specs/search.yml -o doc/rest-api
 `-o, --output string`  Output directory for generated MDX files (default: `out`)
 
 
-### `docli generate sla`
+#### `docli generate sla`
 
 ```sh
 docli generate sla <data> [flags]
@@ -135,7 +183,7 @@ docli gen sla specs/versions-history-with-sla-and-support-policy.json \
 `--versions-snippets-file string`  Snippet file with latest released version numbers
 
 
-### `docli generate snippets`
+#### `docli generate snippets`
 
 ```sh
 docli generate snippets <snippets> [flags]

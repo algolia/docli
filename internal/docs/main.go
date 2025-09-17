@@ -17,12 +17,18 @@ import (
 func main() {
 	out := "README.md"
 
+	usage, err := os.ReadFile("./internal/docs/usage.md")
+	if err != nil {
+		log.Fatalf("Can't find usage doc `internal/docs/usage.md`: %v", err)
+	}
+
 	root := root.NewRootCmd()
 	root.DisableAutoGenTag = true
 
-	md := renderAll(root)
+	// Append command reference to usage info
+	usage = append(usage, renderAll(root)...)
 
-	if err := os.WriteFile(out, md, 0o644); err != nil {
+	if err := os.WriteFile(out, usage, 0o644); err != nil {
 		log.Fatal(err)
 	}
 
@@ -57,13 +63,16 @@ func walk(c *cobra.Command, visit func(*cobra.Command, int)) {
 			rec(sc, depth+1)
 		}
 	}
-	rec(c, 1)
+	rec(c, 2)
 }
 
 func writeCommandSection(buf *bytes.Buffer, c *cobra.Command, depth int) {
 	// Heading level
-	h := strings.Repeat("#", depth) // root -> ##, child -> ###, etc.
-	fmt.Fprintf(buf, "%s `%s`\n\n", h, c.CommandPath())
+	h := strings.Repeat("#", depth)
+	// Skip writing command name for root command
+	if depth > 2 {
+		fmt.Fprintf(buf, "%s `%s`\n\n", h, c.CommandPath())
+	}
 
 	// Usage
 	if c.Use != "" {
@@ -133,7 +142,7 @@ func writeSubcommands(buf *bytes.Buffer, commands [](*cobra.Command), depth int)
 	if len(visible) > 0 {
 		sort.Slice(visible, func(i, j int) bool { return visible[i].Name() < visible[j].Name() })
 
-		if depth == 1 {
+		if depth == 2 {
 			fmt.Fprintf(buf, "**Commands:** %s\n\n", joinNames(visible))
 		} else {
 			fmt.Fprintf(buf, "**Subcommands:** %s\n\n", joinNames(visible))
