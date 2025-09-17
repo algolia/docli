@@ -20,3 +20,14 @@ description: {{ .ShortDescription }}
 {{ end }}
 </CodeGroup>
 {{- end }}
+
+<Card
+  icon="folder-code"
+  horizontal="true"
+  title="See the full API reference"
+  arrow="true"
+  href="/doc/rest-api/{{ .ApiName }}/{{ .OperationIdKebab }}"
+>
+For more details about input parameters
+and response fields.
+</Card>

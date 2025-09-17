@@ -27,11 +27,13 @@ type Options struct {
 // OperationData represents relevant information about an API operation.
 type OperationData struct {
 	Acl              string
+	ApiName          string
 	CodeSamples      []CodeSample
 	Description      string
 	InputFilename    string
 	OutputFilename   string
 	OutputPath       string
+	OperationIdKebab string
 	Params           []Parameter
 	RequestBody      RequestBody
 	RequiresAdmin    bool
@@ -149,10 +151,12 @@ func getApiData(
 
 			data := OperationData{
 				Acl:              utils.AclToString(acl),
+				ApiName:          opts.ApiName,
 				CodeSamples:      getCodeSamples(op),
 				Description:      long,
 				OutputFilename:   utils.GetOutputFilename(op),
 				OutputPath:       prefix,
+				OperationIdKebab: utils.ToKebabCase(op.OperationId),
 				Params:           getParameters(op),
 				RequiresAdmin:    false,
 				RequestBody:      getRequestBody(op),
