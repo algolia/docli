@@ -2,14 +2,18 @@
 title: {{ .Summary }}
 description: {{ .ShortDescription }}
 ---
-{{  if .RequiresAdmin }}
+{{- if .Deprecated }}
+
+<Warning>This method is **deprecated.**</Warning>
+{{- end }}
+{{ if .RequiresAdmin }}
 **Requires Admin API key**
-{{  else if .Acl }}
+{{- else if .Acl }}
 **Required ACL:** {{ .Acl }}
 {{- end }}
 
 {{ .Description }}
-{{  if .CodeSamples }}
+{{ if .CodeSamples }}
 ## Usage
 
 <CodeGroup>

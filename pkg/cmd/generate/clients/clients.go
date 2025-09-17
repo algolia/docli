@@ -29,6 +29,7 @@ type OperationData struct {
 	Acl              string
 	ApiName          string
 	CodeSamples      []CodeSample
+	Deprecated       bool
 	Description      string
 	InputFilename    string
 	OutputFilename   string
@@ -72,7 +73,7 @@ func NewClientsCommand() *cobra.Command {
 			This command reads an OpenAPI 3 spec file and generates one MDX file per operation.
 			It writes an API reference with usage information specific to API clients,
 			which may follow different conventions depending on the programming language used.
-			This commadn doesn't delete MDX files. If you remove or rename an operation,
+			This command doesn't delete MDX files. If you remove or rename an operation,
 			you need to update or delete its MDX file manually.
 		`),
 		Example: heredoc.Doc(`
@@ -153,6 +154,7 @@ func getApiData(
 				Acl:              utils.AclToString(acl),
 				ApiName:          opts.ApiName,
 				CodeSamples:      getCodeSamples(op),
+				Deprecated:       boolOrFalse(op.Deprecated),
 				Description:      long,
 				OutputFilename:   utils.GetOutputFilename(op),
 				OutputPath:       prefix,
@@ -273,5 +275,13 @@ func getParameters(op *v3.Operation) []Parameter {
 func getRequestBody(op *v3.Operation) RequestBody {
 	return RequestBody{
 		Description: "Unknown",
+	}
+}
+
+func boolOrFalse(val *bool) bool {
+	if val == nil {
+		return false
+	} else {
+		return *val
 	}
 }
