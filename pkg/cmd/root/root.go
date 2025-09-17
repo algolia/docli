@@ -30,7 +30,7 @@ func NewRootCmd() *cobra.Command {
 	// Define the root command
 	cmd := &cobra.Command{
 		Use:     "docli",
-		Version: "0.4.0",
+		Version: "0.5.0",
 		Short:   "Generate content for the Algolia docs on Mintlify",
 		Long: heredoc.Doc(`
 			Not all of Algolia's docs are handwritten.
