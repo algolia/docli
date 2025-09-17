@@ -108,10 +108,6 @@ func LoadSpec(specFile []byte) (*libopenapi.DocumentModel[v3.Document], error) {
 
 // GetOutputPath returns the output path for the MDX file for the given operation.
 func GetOutputPath(op *v3.Operation, prefix string) string {
-	if len(op.Tags) > 0 {
-		return fmt.Sprintf("%s/%s", prefix, ToKebabCase(op.Tags[0]))
-	}
-
 	return fmt.Sprintf("%s", prefix)
 }
 

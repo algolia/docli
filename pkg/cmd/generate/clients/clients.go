@@ -65,9 +65,17 @@ func NewClientsCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "clients",
 		Aliases: []string{"c"},
-		Short:   "Generate API client reference pages from the OpenAPI spec",
+		Short:   "Generate MDX files for the API client method references",
 		Long: heredoc.Doc(`
 			This command reads an OpenAPI 3 spec file and generates one MDX file per operation.
+			It writes an API reference with usage information specific to API clients,
+			which may follow different conventions depending on the programming language used.
+			This commadn doesn't delete MDX files. If you remove or rename an operation,
+			you need to update or delete its MDX file manually.
+		`),
+		Example: heredoc.Doc(`
+			# Run from root of algolia/docs-new
+			docli gen clients specs/search.yml -o doc/libraries/sdk/methods
 		`),
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -198,6 +206,9 @@ func splitDescription(p string) (string, string) {
 		short := strings.TrimSpace(parts[0])
 		long := strings.TrimSpace(parts[1])
 
+		// No extra newline characters in between
+		short = strings.ReplaceAll(short, "\n", "")
+
 		return short, long
 	}
 
@@ -229,7 +240,9 @@ func getCodeSamples(op *v3.Operation) []CodeSample {
 
 		c.Lang = dictionary.NormalizeLang(c.Lang)
 
-		result = append(result, c)
+		if strings.ToLower(c.Label) != "curl" {
+			result = append(result, c)
+		}
 	}
 
 	return result
