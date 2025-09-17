@@ -1,0 +1,33 @@
+---
+title: {{ .Summary }}
+description: {{ .ShortDescription }}
+---
+{{  if .RequiresAdmin }}
+**Requires Admin API key**
+{{  else if .Acl }}
+**Required ACL:** {{ .Acl }}
+{{- end }}
+
+{{ .Description }}
+{{  if .CodeSamples }}
+## Usage
+
+<CodeGroup>
+{{ range .CodeSamples }}
+```{{ .Lang }} {{ .Label }}
+{{ trim .Source }}
+```
+{{ end }}
+</CodeGroup>
+{{- end }}
+
+<Card
+  icon="folder-code"
+  horizontal="true"
+  title="See the full API reference"
+  arrow="true"
+  href="/doc/rest-api/{{ .ApiName }}/{{ .OperationIdKebab }}"
+>
+For more details about input parameters
+and response fields.
+</Card>

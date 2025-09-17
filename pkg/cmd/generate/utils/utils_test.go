@@ -264,39 +264,6 @@ func TestOutputFilename(t *testing.T) {
 	}
 }
 
-func TestOutputPath(t *testing.T) {
-	prefix := "foo"
-
-	tests := []struct {
-		name     string
-		op       *v3.Operation
-		expected string
-	}{
-		{
-			name:     "With tags",
-			op:       &v3.Operation{Tags: []string{"Search"}},
-			expected: "foo/search",
-		},
-		{
-			name:     "Without tags",
-			op:       &v3.Operation{},
-			expected: prefix,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			got := GetOutputPath(tt.op, prefix)
-
-			if got != tt.expected {
-				t.Errorf("Got %s, expected %s", got, tt.expected)
-			}
-		})
-	}
-}
-
 func mockOp(extensions *yaml.Node) v3.Operation {
 	op := v3.Operation{}
 	op.Extensions = orderedmap.New[string, *yaml.Node]()
