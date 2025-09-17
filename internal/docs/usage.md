@@ -21,8 +21,8 @@ for more information about activating it for your shell.
 1. Clone the `github.com/algolia/docli` repository.
 1. Change into the cloned repository: `cd docli`.
 
-   - **With devbox and direnv:** the dependencies are installed automatically
-   - **With devbox:** run `devbox shell` to install the dependencies
+   - **With devbox and direnv:** the dependencies are installed automatically.
+   - **With devbox:** run `devbox shell` to install the dependencies and activate the environment.
    - **Without devbox:** manually install the dependencies listed in `devbox.json`.
 
 1. Build the project, by running `task build`.
