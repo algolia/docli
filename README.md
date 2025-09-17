@@ -15,13 +15,15 @@ for more information about activating it for your shell.
 ## Development
 
 > [!NOTE]
-> The following instructions require [devbox](https://www.jetify.com/devbox) and [direnv](https://direnv.net/).
+> If you're using [devbox](https://www.jetify.com/devbox) and [direnv](https://direnv.net/),
+> setting up the development environment is automated.
 
 1. Clone the `github.com/algolia/docli` repository.
 1. Change into the cloned repository: `cd docli`.
-   The dependencies are installed automatically.
 
-   (To install the dependencies manually, see the list in `devbox.json`).
+   - **With devbox and direnv:** the dependencies are installed automatically
+   - **With devbox:** run `devbox shell` to install the dependencies
+   - **Without devbox:** manually install the dependencies listed in `devbox.json`.
 
 1. Build the project, by running `task build`.
    See the other available tasks by running `task -l`.
@@ -109,11 +111,22 @@ docli gen cdn -o snippets/autocomplete/includes -d cdn.yml -t templates
 docli generate clients [flags]
 ```
 
-Generate API client reference pages from the OpenAPI spec.
+Generate MDX files for the API client method references.
 
 This command reads an OpenAPI 3 spec file and generates one MDX file per operation.
+It writes an API reference with usage information specific to API clients,
+which may follow different conventions depending on the programming language used.
+This commadn doesn't delete MDX files. If you remove or rename an operation,
+you need to update or delete its MDX file manually.
 
 **Aliases:** `c`
+
+**Examples**
+
+```sh
+# Run from root of algolia/docs-new
+docli gen clients specs/search.yml -o doc/libraries/sdk/methods
+```
 
 **Flags**
 
