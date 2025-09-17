@@ -15,13 +15,15 @@ for more information about activating it for your shell.
 ## Development
 
 > [!NOTE]
-> The following instructions require [devbox](https://www.jetify.com/devbox) and [direnv](https://direnv.net/).
+> If you're using [devbox](https://www.jetify.com/devbox) and [direnv](https://direnv.net/),
+> setting up the development environment is automated.
 
 1. Clone the `github.com/algolia/docli` repository.
 1. Change into the cloned repository: `cd docli`.
-   The dependencies are installed automatically.
 
-   (To install the dependencies manually, see the list in `devbox.json`).
+   - **With devbox and direnv:** the dependencies are installed automatically
+   - **With devbox:** run `devbox shell` to install the dependencies
+   - **Without devbox:** manually install the dependencies listed in `devbox.json`.
 
 1. Build the project, by running `task build`.
    See the other available tasks by running `task -l`.
