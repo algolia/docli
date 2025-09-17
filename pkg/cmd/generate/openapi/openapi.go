@@ -129,7 +129,7 @@ func getApiData(
 				ApiPath:        pathName,
 				InputFilename:  normalizePath(opts.InputFileName),
 				OutputFilename: utils.GetOutputFilename(op),
-				OutputPath:     utils.GetOutputPath(op, prefix),
+				OutputPath:     prefix,
 				RequiresAdmin:  false,
 				Title:          strings.TrimSpace(op.Summary),
 				Verb:           opPairs.Key(),

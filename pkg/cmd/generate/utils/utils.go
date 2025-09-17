@@ -106,11 +106,6 @@ func LoadSpec(specFile []byte) (*libopenapi.DocumentModel[v3.Document], error) {
 	return docModel, nil
 }
 
-// GetOutputPath returns the output path for the MDX file for the given operation.
-func GetOutputPath(op *v3.Operation, prefix string) string {
-	return fmt.Sprintf("%s", prefix)
-}
-
 // GetOutputFilename generates the filename from the operationId.
 func GetOutputFilename(op *v3.Operation) string {
 	return fmt.Sprintf("%s.mdx", ToKebabCase(op.OperationId))

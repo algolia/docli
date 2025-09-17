@@ -152,7 +152,7 @@ func getApiData(
 				CodeSamples:      getCodeSamples(op),
 				Description:      long,
 				OutputFilename:   utils.GetOutputFilename(op),
-				OutputPath:       utils.GetOutputPath(op, prefix),
+				OutputPath:       prefix,
 				Params:           getParameters(op),
 				RequiresAdmin:    false,
 				RequestBody:      getRequestBody(op),
