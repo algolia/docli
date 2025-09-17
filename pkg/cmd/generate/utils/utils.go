@@ -10,7 +10,7 @@ import (
 	"github.com/algolia/docli/pkg/dictionary"
 	"github.com/pb33f/libopenapi"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // GetApiName returns the name of the YAML file without extension as API name.
