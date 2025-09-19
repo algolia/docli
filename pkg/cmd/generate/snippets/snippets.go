@@ -11,6 +11,7 @@ import (
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/algolia/docli/pkg/cmd/generate/utils"
+	"github.com/algolia/docli/pkg/dictionary"
 	"github.com/spf13/cobra"
 )
 
@@ -85,8 +86,18 @@ func generateMarkdownSnippet(snippet map[string]string) string {
 	languages := sortLanguages(snippet)
 
 	for _, lang := range languages {
-		result += fmt.Sprintf("\n```%s %s\n", lang, utils.GetLanguageName(lang))
-		result += strings.ReplaceAll(snippet[lang], "<YOUR_INDEX_NAME>", "ALGOLIA_INDEX_NAME")
+		result += fmt.Sprintf(
+			"\n```%s %s\n",
+			dictionary.NormalizeLang(lang),
+			utils.GetLanguageName(lang),
+		)
+		replaced := strings.ReplaceAll(snippet[lang], "<YOUR_INDEX_NAME>", "ALGOLIA_INDEX_NAME")
+		replaced = strings.ReplaceAll(
+			replaced,
+			"cts_e2e_deleteObjects_javascript",
+			"ALGOLIA_INDEX_NAME",
+		)
+		result += replaced
 		result += "\n```\n"
 	}
 
