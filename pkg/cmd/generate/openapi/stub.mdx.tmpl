@@ -9,3 +9,7 @@ openapi: {{ .InputFilename }} {{ .Verb }} {{ .ApiPath }}
 
 **Required ACL:** {{ .Acl }}
 {{- end }}
+{{- if .SeeAlso }}
+
+**See also:** [{{- .ExternalDocs.Description -}}]({{- .ExternalDocs.Url -}})
+{{- end }}

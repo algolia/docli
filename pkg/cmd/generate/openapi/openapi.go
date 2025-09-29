@@ -23,14 +23,22 @@ type Options struct {
 	OutputDirectory string
 }
 
+// ExternalDocs holds an externalDocs reference.
+type ExternalDocs struct {
+	Description string
+	Url         string
+}
+
 // OperationData holds data relevant to a single API operation stub file.
 type OperationData struct {
 	Acl            string
 	ApiPath        string
+	ExternalDocs   ExternalDocs
 	InputFilename  string
 	OutputFilename string
 	OutputPath     string
 	RequiresAdmin  bool
+	SeeAlso        bool
 	Title          string
 	Verb           string
 }
@@ -137,6 +145,16 @@ func getApiData(
 
 			if data.Acl == "`admin`" {
 				data.RequiresAdmin = true
+			}
+
+			if op.ExternalDocs != nil {
+				desc := strings.TrimSpace(op.ExternalDocs.Description)
+				data.ExternalDocs.Description = strings.TrimSuffix(desc, ".")
+				data.ExternalDocs.Url = op.ExternalDocs.URL
+			}
+
+			if data.ExternalDocs.Description != "" && data.ExternalDocs.Url != "" {
+				data.SeeAlso = true
 			}
 
 			result = append(result, data)
