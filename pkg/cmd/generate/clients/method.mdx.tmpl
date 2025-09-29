@@ -35,3 +35,7 @@ description: {{ .ShortDescription }}
 For more details about input parameters
 and response fields.
 </Card>
+{{- if .SeeAlso }}
+
+**See also:** [{{- .ExternalDocs.Description -}}]({{- .ExternalDocs.Url -}})
+{{- end }}
