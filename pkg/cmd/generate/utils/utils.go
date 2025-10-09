@@ -94,13 +94,9 @@ func LoadSpec(specFile []byte) (*libopenapi.DocumentModel[v3.Document], error) {
 		return nil, err
 	}
 
-	docModel, errors := doc.BuildV3Model()
-	if len(errors) > 0 {
-		for i := range errors {
-			fmt.Printf("error: %e\n", errors[i])
-		}
-
-		return nil, fmt.Errorf("cannot parse spec: %d errors.", len(errors))
+	docModel, err := doc.BuildV3Model()
+	if err != nil {
+		return nil, fmt.Errorf("Cant' parse spec: %w\n", err)
 	}
 
 	return docModel, nil

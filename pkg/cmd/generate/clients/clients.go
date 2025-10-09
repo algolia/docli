@@ -24,6 +24,12 @@ type Options struct {
 	OutputDirectory string
 }
 
+// ExternalDocs holds an externalDocs reference.
+type ExternalDocs struct {
+	Description string
+	Url         string
+}
+
 // OperationData represents relevant information about an API operation.
 type OperationData struct {
 	Acl              string
@@ -31,6 +37,7 @@ type OperationData struct {
 	CodeSamples      []CodeSample
 	Deprecated       bool
 	Description      string
+	ExternalDocs     ExternalDocs
 	InputFilename    string
 	OutputFilename   string
 	OutputPath       string
@@ -38,6 +45,7 @@ type OperationData struct {
 	Params           []Parameter
 	RequestBody      RequestBody
 	RequiresAdmin    bool
+	SeeAlso          bool
 	ShortDescription string
 	Summary          string
 }
@@ -121,6 +129,8 @@ func runCommand(opts *Options) {
 }
 
 // getApiData reads the OpenAPI spec and parses the operation data.
+//
+//nolint:funlen
 func getApiData(
 	doc *libopenapi.DocumentModel[v3.Document],
 	opts *Options,
@@ -168,6 +178,16 @@ func getApiData(
 
 			if data.Acl == "`admin`" {
 				data.RequiresAdmin = true
+			}
+
+			if op.ExternalDocs != nil {
+				desc := strings.TrimSpace(op.ExternalDocs.Description)
+				data.ExternalDocs.Description = strings.TrimSuffix(desc, ".")
+				data.ExternalDocs.Url = op.ExternalDocs.URL
+			}
+
+			if data.ExternalDocs.Description != "" && data.ExternalDocs.Url != "" {
+				data.SeeAlso = true
 			}
 
 			result = append(result, data)
