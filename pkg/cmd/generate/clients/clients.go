@@ -129,6 +129,8 @@ func runCommand(opts *Options) {
 }
 
 // getApiData reads the OpenAPI spec and parses the operation data.
+//
+//nolint:funlen
 func getApiData(
 	doc *libopenapi.DocumentModel[v3.Document],
 	opts *Options,
@@ -187,8 +189,6 @@ func getApiData(
 			if data.ExternalDocs.Description != "" && data.ExternalDocs.Url != "" {
 				data.SeeAlso = true
 			}
-
-
 
 			result = append(result, data)
 			count++
