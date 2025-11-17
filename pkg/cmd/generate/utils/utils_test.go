@@ -246,7 +246,7 @@ func TestGetApiName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := GetApiName(tt.path)
+			got := GetAPIName(tt.path)
 			if got != tt.expected {
 				t.Errorf("Error in GetApiName. got %s, expected %s", got, tt.expected)
 			}
@@ -323,7 +323,7 @@ func TestGetAcl(t *testing.T) {
 
 			op := mockOp(tt.extensions)
 
-			got, err := GetAcl(&op)
+			got, err := GetACL(&op)
 			if !tt.expectError && err != nil {
 				t.Fatalf("unexpected error %v", err)
 			}

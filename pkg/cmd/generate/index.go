@@ -29,8 +29,8 @@ func NewGenerateCmd() *cobra.Command {
 	}
 
 	command.AddCommand(clients.NewClientsCommand())
-	command.AddCommand(openapi.NewOpenApiCommand())
-	command.AddCommand(sla.NewSlaCommand())
+	command.AddCommand(openapi.NewOpenAPICommand())
+	command.AddCommand(sla.NewSLACommand())
 	command.AddCommand(snippets.NewSnippetsCommand())
 	command.AddCommand(cdn.NewCdnCommand())
 

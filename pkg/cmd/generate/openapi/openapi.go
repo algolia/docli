@@ -18,7 +18,7 @@ import (
 
 // Options represents the options and flags for this command.
 type Options struct {
-	ApiName         string
+	APIName         string
 	InputFileName   string
 	OutputDirectory string
 }
@@ -26,13 +26,20 @@ type Options struct {
 // ExternalDocs holds an externalDocs reference.
 type ExternalDocs struct {
 	Description string
-	Url         string
+	URL         string
+}
+
+// OverviewData holds relevant data for the entire spec.
+type OverviewData struct {
+	OutputFilename string
+	OutputPath     string
+	Title          string
 }
 
 // OperationData holds data relevant to a single API operation stub file.
 type OperationData struct {
-	Acl            string
-	ApiPath        string
+	ACL            string
+	APIPath        string
 	ExternalDocs   ExternalDocs
 	InputFilename  string
 	OutputFilename string
@@ -43,11 +50,14 @@ type OperationData struct {
 	Verb           string
 }
 
+//go:embed overview.mdx.tmpl
+var overviewTemplate string
+
 //go:embed stub.mdx.tmpl
 var stubTemplate string
 
-// NewOpenApiCommand returns a new instance of the `generate openapi` command.
-func NewOpenApiCommand() *cobra.Command {
+// NewOpenAPICommand returns a new instance of the `generate openapi` command.
+func NewOpenAPICommand() *cobra.Command {
 	opts := &Options{}
 
 	cmd := &cobra.Command{
@@ -67,7 +77,7 @@ func NewOpenApiCommand() *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			opts.InputFileName = args[0]
-			opts.ApiName = utils.GetApiName(opts.InputFileName)
+			opts.APIName = utils.GetAPIName(opts.InputFileName)
 
 			runCommand(opts)
 		},
@@ -94,18 +104,46 @@ func runCommand(opts *Options) {
 		log.Fatalf("Error: %e", err)
 	}
 
-	opData, err := getApiData(spec, opts)
+	overviewData, err := getAPIOverviewData(spec, opts)
+	if err != nil {
+		log.Fatalf("Error: %e", err)
+	}
+
+	ovTmpl := template.Must(template.New("overview").Parse(overviewTemplate))
+	err = writeOverviewData(overviewData, ovTmpl)
+	if err != nil {
+		log.Fatalf("Error: %e", err)
+	}
+
+	opData, err := getAPIData(spec, opts)
 	if err != nil {
 		log.Fatalf("Error: %e", err)
 	}
 
 	tmpl := template.Must(template.New("stub").Parse(stubTemplate))
 
-	writeApiData(opData, tmpl)
+	err = writeAPIData(opData, tmpl)
+	if err != nil {
+		log.Fatalf("Error: %e", err)
+	}
 }
 
-// getApiData generates the MDX stub data for each OpenAPI operation in the spec.
-func getApiData(
+// getAPIOverviewData generates MDX stub data for the API spec.
+func getAPIOverviewData(
+	doc *libopenapi.DocumentModel[v3.Document],
+	opts *Options,
+) (OverviewData, error) {
+	result := OverviewData{
+		OutputFilename: fmt.Sprintf("%s.mdx", opts.APIName),
+		OutputPath:     opts.OutputDirectory,
+		Title:          doc.Model.Info.Title,
+	}
+
+	return result, nil
+}
+
+// getAPIData generates the MDX stub data for each OpenAPI operation in the spec.
+func getAPIData(
 	doc *libopenapi.DocumentModel[v3.Document],
 	opts *Options,
 ) ([]OperationData, error) {
@@ -113,7 +151,7 @@ func getApiData(
 
 	count := 0
 
-	prefix := fmt.Sprintf("%s/%s", opts.OutputDirectory, opts.ApiName)
+	prefix := fmt.Sprintf("%s/%s", opts.OutputDirectory, opts.APIName)
 
 	for pathPairs := doc.Model.Paths.PathItems.First(); pathPairs != nil; pathPairs = pathPairs.Next() {
 		pathName := pathPairs.Key()
@@ -127,14 +165,14 @@ func getApiData(
 		for opPairs := pathItem.GetOperations().First(); opPairs != nil; opPairs = opPairs.Next() {
 			op := opPairs.Value()
 
-			acl, err := utils.GetAcl(op)
+			acl, err := utils.GetACL(op)
 			if err != nil {
 				return nil, err
 			}
 
 			data := OperationData{
-				Acl:            utils.AclToString(acl),
-				ApiPath:        pathName,
+				ACL:            utils.AclToString(acl),
+				APIPath:        pathName,
 				InputFilename:  normalizePath(opts.InputFileName),
 				OutputFilename: utils.GetOutputFilename(op),
 				OutputPath:     prefix,
@@ -143,17 +181,17 @@ func getApiData(
 				Verb:           opPairs.Key(),
 			}
 
-			if data.Acl == "`admin`" {
+			if data.ACL == "`admin`" {
 				data.RequiresAdmin = true
 			}
 
 			if op.ExternalDocs != nil {
 				desc := strings.TrimSpace(op.ExternalDocs.Description)
 				data.ExternalDocs.Description = strings.TrimSuffix(desc, ".")
-				data.ExternalDocs.Url = op.ExternalDocs.URL
+				data.ExternalDocs.URL = op.ExternalDocs.URL
 			}
 
-			if data.ExternalDocs.Description != "" && data.ExternalDocs.Url != "" {
+			if data.ExternalDocs.Description != "" && data.ExternalDocs.URL != "" {
 				data.SeeAlso = true
 			}
 
@@ -167,8 +205,30 @@ func getApiData(
 	return result, nil
 }
 
-// writeApiData writes the OpenAPI data of a single operation to an MDX stub file.
-func writeApiData(data []OperationData, template *template.Template) error {
+// writeOverviewData writes the API's overview data into an MDX file.
+func writeOverviewData(data OverviewData, template *template.Template) error {
+	err := os.MkdirAll(data.OutputPath, 0o755)
+	if err != nil {
+		return err
+	}
+
+	fullPath := filepath.Join(data.OutputPath, data.OutputFilename)
+
+	out, err := os.Create(fullPath)
+	if err != nil {
+		return err
+	}
+
+	err = template.Execute(out, data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// writeAPIData writes the OpenAPI data of a single operation to an MDX stub file.
+func writeAPIData(data []OperationData, template *template.Template) error {
 	for _, item := range data {
 		err := os.MkdirAll(item.OutputPath, 0o755)
 		if err != nil {

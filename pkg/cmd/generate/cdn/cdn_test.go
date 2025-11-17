@@ -200,7 +200,7 @@ func TestGetIncludeLinksDefaultInclude(t *testing.T) {
 	// Src should be formatted as JSDELIVR_CDN_URL + "/foo@1.2.3/index.js"
 	expectedSrc := fmt.Sprintf(
 		"%s/%s@%s%s",
-		JSDELIVR_CDN_URL,
+		jsDelivrCdnURL,
 		pkg.PackageName,
 		pkg.Version,
 		pkg.File,

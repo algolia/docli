@@ -1,15 +1,15 @@
 ---
 title: {{ .Title }}
-openapi: {{ .InputFilename }} {{ .Verb }} {{ .ApiPath }}
+openapi: {{ .InputFilename }} {{ .Verb }} {{ .APIPath }}
 ---
 {{- if .RequiresAdmin }}
 
 **Requires Admin API key**
-{{- else if .Acl }}
+{{- else if .ACL }}
 
-**Required ACL:** {{ .Acl }}
+**Required ACL:** {{ .ACL }}
 {{- end }}
 {{- if .SeeAlso }}
 
-**See also:** [{{- .ExternalDocs.Description -}}]({{- .ExternalDocs.Url -}})
+**See also:** [{{- .ExternalDocs.Description -}}]({{- .ExternalDocs.URL -}})
 {{- end }}

@@ -19,7 +19,7 @@ import (
 
 // Options represents configuration options and CLI flags for this command.
 type Options struct {
-	ApiName         string
+	APIName         string
 	InputFilename   string
 	OutputDirectory string
 }
@@ -27,13 +27,13 @@ type Options struct {
 // ExternalDocs holds an externalDocs reference.
 type ExternalDocs struct {
 	Description string
-	Url         string
+	URL         string
 }
 
 // OperationData represents relevant information about an API operation.
 type OperationData struct {
-	Acl              string
-	ApiName          string
+	ACL              string
+	APIName          string
 	CodeSamples      []CodeSample
 	Deprecated       bool
 	Description      string
@@ -41,7 +41,7 @@ type OperationData struct {
 	InputFilename    string
 	OutputFilename   string
 	OutputPath       string
-	OperationIdKebab string
+	OperationIDKebab string
 	Params           []Parameter
 	RequestBody      RequestBody
 	RequiresAdmin    bool
@@ -91,7 +91,7 @@ func NewClientsCommand() *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			opts.InputFilename = args[0]
-			opts.ApiName = utils.GetApiName(opts.InputFilename)
+			opts.APIName = utils.GetAPIName(opts.InputFilename)
 			runCommand(opts)
 		},
 	}
@@ -116,7 +116,7 @@ func runCommand(opts *Options) {
 		log.Fatalf("Error: %e", err)
 	}
 
-	opData, err := getApiData(spec, opts)
+	opData, err := getAPIData(spec, opts)
 	if err != nil {
 		log.Fatalf("Error: %e", err)
 	}
@@ -125,13 +125,13 @@ func runCommand(opts *Options) {
 		"trim": strings.TrimSpace,
 	}).Parse(methodTemplate))
 
-	writeApiData(opData, tmpl)
+	writeAPIData(opData, tmpl)
 }
 
-// getApiData reads the OpenAPI spec and parses the operation data.
+// getAPIData reads the OpenAPI spec and parses the operation data.
 //
 //nolint:funlen
-func getApiData(
+func getAPIData(
 	doc *libopenapi.DocumentModel[v3.Document],
 	opts *Options,
 ) ([]OperationData, error) {
@@ -139,7 +139,7 @@ func getApiData(
 
 	count := 0
 
-	prefix := fmt.Sprintf("%s/%s", opts.OutputDirectory, opts.ApiName)
+	prefix := fmt.Sprintf("%s/%s", opts.OutputDirectory, opts.APIName)
 
 	for pathPairs := doc.Model.Paths.PathItems.First(); pathPairs != nil; pathPairs = pathPairs.Next() {
 		pathName := pathPairs.Key()
@@ -153,7 +153,7 @@ func getApiData(
 		for opPairs := pathItem.GetOperations().First(); opPairs != nil; opPairs = opPairs.Next() {
 			op := opPairs.Value()
 
-			acl, err := utils.GetAcl(op)
+			acl, err := utils.GetACL(op)
 			if err != nil {
 				return nil, err
 			}
@@ -161,14 +161,14 @@ func getApiData(
 			short, long := splitDescription(op.Description)
 
 			data := OperationData{
-				Acl:              utils.AclToString(acl),
-				ApiName:          opts.ApiName,
+				ACL:              utils.AclToString(acl),
+				APIName:          opts.APIName,
 				CodeSamples:      getCodeSamples(op),
 				Deprecated:       boolOrFalse(op.Deprecated),
 				Description:      long,
 				OutputFilename:   utils.GetOutputFilename(op),
 				OutputPath:       prefix,
-				OperationIdKebab: utils.ToKebabCase(op.OperationId),
+				OperationIDKebab: utils.ToKebabCase(op.OperationId),
 				Params:           getParameters(op),
 				RequiresAdmin:    false,
 				RequestBody:      getRequestBody(op),
@@ -176,17 +176,17 @@ func getApiData(
 				Summary:          op.Summary,
 			}
 
-			if data.Acl == "`admin`" {
+			if data.ACL == "`admin`" {
 				data.RequiresAdmin = true
 			}
 
 			if op.ExternalDocs != nil {
 				desc := strings.TrimSpace(op.ExternalDocs.Description)
 				data.ExternalDocs.Description = strings.TrimSuffix(desc, ".")
-				data.ExternalDocs.Url = op.ExternalDocs.URL
+				data.ExternalDocs.URL = op.ExternalDocs.URL
 			}
 
-			if data.ExternalDocs.Description != "" && data.ExternalDocs.Url != "" {
+			if data.ExternalDocs.Description != "" && data.ExternalDocs.URL != "" {
 				data.SeeAlso = true
 			}
 
@@ -200,8 +200,8 @@ func getApiData(
 	return result, nil
 }
 
-// writeApiData writes the OpenAPI data to MDX files.
-func writeApiData(data []OperationData, template *template.Template) error {
+// writeAPIData writes the OpenAPI data to MDX files.
+func writeAPIData(data []OperationData, template *template.Template) error {
 	for _, item := range data {
 		if err := os.MkdirAll(item.OutputPath, 0o755); err != nil {
 			return err

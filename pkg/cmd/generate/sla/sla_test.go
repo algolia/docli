@@ -22,25 +22,25 @@ func TestParseVersions(t *testing.T) {
 		"csharp": Version{
 			"1.0": VersionInfo{
 				ReleaseDate: "today",
-				SlaStatus:   "eligible",
-				SlaEndDate:  "",
+				SLAStatus:   "eligible",
+				SLAEndDate:  "",
 			},
 			"2.0": VersionInfo{
 				ReleaseDate: "today",
-				SlaStatus:   "eligible",
-				SlaEndDate:  "tomorrow",
+				SLAStatus:   "eligible",
+				SLAEndDate:  "tomorrow",
 			},
 		},
 		"go": Version{
 			"1.0": VersionInfo{
 				ReleaseDate: "today",
-				SlaStatus:   "eligible",
-				SlaEndDate:  "",
+				SLAStatus:   "eligible",
+				SLAEndDate:  "",
 			},
 			"2.0": VersionInfo{
 				ReleaseDate: "today",
-				SlaStatus:   "eligible",
-				SlaEndDate:  "tomorrow",
+				SLAStatus:   "eligible",
+				SLAEndDate:  "tomorrow",
 			},
 		},
 	}

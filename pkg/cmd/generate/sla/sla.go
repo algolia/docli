@@ -25,8 +25,8 @@ type Options struct {
 // VersionInfo represents the version information for a single version of an API client.
 type VersionInfo struct {
 	ReleaseDate string `json:"releaseDate"`
-	SlaStatus   string `json:"slaStatus"`
-	SlaEndDate  string `json:"slaEndDate,omitempty"`
+	SLAStatus   string `json:"slaStatus"`
+	SLAEndDate  string `json:"slaEndDate,omitempty"`
 }
 
 // Version maps a version string to its version information.
@@ -52,7 +52,7 @@ type ClientEntry struct {
 //go:embed page.mdx.tmpl
 var pageTemplate string
 
-func NewSlaCommand() *cobra.Command {
+func NewSLACommand() *cobra.Command {
 	opts := &Options{}
 
 	cmd := &cobra.Command{

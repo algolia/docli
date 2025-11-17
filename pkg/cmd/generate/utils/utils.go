@@ -13,16 +13,16 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
-// GetApiName returns the name of the YAML file without extension as API name.
-func GetApiName(path string) string {
+// GetAPIName returns the name of the YAML file without extension as API name.
+func GetAPIName(path string) string {
 	// Have to make an exception for the Analytics API
 	base := filepath.Base(strings.ReplaceAll(path, "searchstats", "analytics"))
 
 	return strings.TrimSuffix(base, filepath.Ext(base))
 }
 
-// GetAcl returns the ACL required to perform the given operation.
-func GetAcl(op *v3.Operation) ([]string, error) {
+// GetACL returns the ACL required to perform the given operation.
+func GetACL(op *v3.Operation) ([]string, error) {
 	node, ok := op.Extensions.Get("x-acl")
 	// Operations can be without ACL
 	if !ok {
@@ -96,7 +96,7 @@ func LoadSpec(specFile []byte) (*libopenapi.DocumentModel[v3.Document], error) {
 
 	docModel, err := doc.BuildV3Model()
 	if err != nil {
-		return nil, fmt.Errorf("Cant' parse spec: %w\n", err)
+		return nil, fmt.Errorf("can't parse spec: %w", err)
 	}
 
 	return docModel, nil

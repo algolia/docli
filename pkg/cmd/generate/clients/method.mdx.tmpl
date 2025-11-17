@@ -8,8 +8,8 @@ description: {{ .ShortDescription }}
 {{- end }}
 {{ if .RequiresAdmin }}
 **Requires Admin API key**
-{{- else if .Acl }}
-**Required ACL:** {{ .Acl }}
+{{- else if .ACL }}
+**Required ACL:** {{ .ACL }}
 {{- end }}
 
 {{ .Description }}
@@ -30,12 +30,12 @@ description: {{ .ShortDescription }}
   horizontal="true"
   title="See the full API reference"
   arrow="true"
-  href="/doc/rest-api/{{ .ApiName }}/{{ .OperationIdKebab }}"
+  href="/doc/rest-api/{{ .APIName }}/{{ .OperationIDKebab }}"
 >
 For more details about input parameters
 and response fields.
 </Card>
 {{- if .SeeAlso }}
 
-**See also:** [{{- .ExternalDocs.Description -}}]({{- .ExternalDocs.Url -}})
+**See also:** [{{- .ExternalDocs.Description -}}]({{- .ExternalDocs.URL -}})
 {{- end }}

@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	JSDELIVR_API_URL = "https://data.jsdelivr.com/v1/package/npm"
-	JSDELIVR_CDN_URL = "https://cdn.jsdelivr.net/npm"
+	jsDelivrAPIURL = "https://data.jsdelivr.com/v1/package/npm"
+	jsDelivrCdnURL = "https://cdn.jsdelivr.net/npm"
 )
 
 // Options represents the options and flags for this command.
@@ -94,11 +94,11 @@ func runCommand(opts *Options) {
 	}
 
 	for _, pkg := range data {
-		if err = getLatestVersion(JSDELIVR_API_URL, &pkg); err != nil {
+		if err = getLatestVersion(jsDelivrAPIURL, &pkg); err != nil {
 			log.Fatalf("error: %v", err)
 		}
 
-		if err = getIncludeLinks(JSDELIVR_API_URL, &pkg); err != nil {
+		if err = getIncludeLinks(jsDelivrAPIURL, &pkg); err != nil {
 			log.Fatalf("error: %v", err)
 		}
 
@@ -157,8 +157,8 @@ func readData(filename string) ([]Package, error) {
 }
 
 // getLatestVersion returns the latest version available on JSDELIVR.
-func getLatestVersion(baseUrl string, p *Package) error {
-	url := fmt.Sprintf("%s/%s", baseUrl, p.PackageName)
+func getLatestVersion(baseURL string, p *Package) error {
+	url := fmt.Sprintf("%s/%s", baseURL, p.PackageName)
 
 	res, err := http.Get(url)
 	if err != nil {
@@ -180,8 +180,8 @@ func getLatestVersion(baseUrl string, p *Package) error {
 	return nil
 }
 
-func getIncludeLinks(baseUrl string, p *Package) error {
-	url := fmt.Sprintf("%s/%s@%s/flat", baseUrl, p.PackageName, p.Version)
+func getIncludeLinks(baseURL string, p *Package) error {
+	url := fmt.Sprintf("%s/%s@%s/flat", baseURL, p.PackageName, p.Version)
 
 	res, err := http.Get(url)
 	if err != nil {
@@ -213,7 +213,7 @@ func getIncludeLinks(baseUrl string, p *Package) error {
 	for _, cdnFile := range cdnFiles.Files {
 		if cdnFile.Name == p.File {
 			p.Integrity = cdnFile.Hash
-			p.Src = fmt.Sprintf("%s/%s@%s%s", JSDELIVR_CDN_URL, p.PackageName, p.Version, p.File)
+			p.Src = fmt.Sprintf("%s/%s@%s%s", jsDelivrCdnURL, p.PackageName, p.Version, p.File)
 			found = true
 		}
 	}

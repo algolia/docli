@@ -1,6 +1,8 @@
 version: "2"
 linters:
   default: fast
+  enable:
+    - staticcheck
   disable:
     - depguard
     - mnd
