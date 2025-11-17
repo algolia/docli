@@ -243,6 +243,9 @@ func splitDescription(p string) (string, string) {
 		short := strings.TrimSpace(p[:idx+1])
 		long := strings.TrimSpace(p[idx+1:])
 
+		// No extra newline characters in between
+		short = strings.ReplaceAll(short, "\n", "")
+
 		return short, long
 	}
 
