@@ -110,6 +110,7 @@ func runCommand(opts *Options) {
 	}
 
 	ovTmpl := template.Must(template.New("overview").Parse(overviewTemplate))
+
 	err = writeOverviewData(overviewData, ovTmpl)
 	if err != nil {
 		log.Fatalf("Error: %e", err)
