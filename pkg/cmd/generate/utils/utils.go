@@ -122,3 +122,34 @@ func GetLanguageName(lang string) string {
 
 	return Capitalize(lang)
 }
+
+// SplitDescription splits a description into the first sentence and the rest.
+func SplitDescription(p string) (string, string) {
+	p = strings.TrimSpace(p)
+
+	// Split by empty line
+	parts := strings.SplitN(p, "\n\n", 2)
+	if len(parts) > 1 && strings.TrimSpace(parts[0]) != "" {
+		short := strings.TrimSpace(parts[0])
+		long := strings.TrimSpace(parts[1])
+
+		// No extra newline characters in between
+		short = strings.ReplaceAll(short, "\n", "")
+
+		return short, long
+	}
+
+	// No empty line: find first period
+	if idx := strings.Index(p, "."); idx != -1 {
+		short := strings.TrimSpace(p[:idx+1])
+		long := strings.TrimSpace(p[idx+1:])
+
+		// No extra newline characters in between
+		short = strings.ReplaceAll(short, "\n", "")
+
+		return short, long
+	}
+
+	// No period: entire paragraph is the shortDescription
+	return p, ""
+}

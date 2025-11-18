@@ -31,9 +31,11 @@ type ExternalDocs struct {
 
 // OverviewData holds relevant data for the entire spec.
 type OverviewData struct {
-	OutputFilename string
-	OutputPath     string
-	Title          string
+	Description      string
+	OutputFilename   string
+	OutputPath       string
+	ShortDescription string
+	Title            string
 }
 
 // OperationData holds data relevant to a single API operation stub file.
@@ -134,10 +136,14 @@ func getAPIOverviewData(
 	doc *libopenapi.DocumentModel[v3.Document],
 	opts *Options,
 ) (OverviewData, error) {
+	short, long := utils.SplitDescription(doc.Model.Info.Description)
+
 	result := OverviewData{
-		OutputFilename: fmt.Sprintf("%s.mdx", opts.APIName),
-		OutputPath:     opts.OutputDirectory,
-		Title:          doc.Model.Info.Title,
+		OutputFilename:   fmt.Sprintf("%s.mdx", opts.APIName),
+		OutputPath:       opts.OutputDirectory,
+		Title:            doc.Model.Info.Title,
+		ShortDescription: short,
+		Description:      long,
 	}
 
 	return result, nil

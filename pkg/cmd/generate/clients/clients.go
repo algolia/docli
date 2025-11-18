@@ -158,7 +158,7 @@ func getAPIData(
 				return nil, err
 			}
 
-			short, long := splitDescription(op.Description)
+			short, long := utils.SplitDescription(op.Description)
 
 			data := OperationData{
 				ACL:              utils.AclToString(acl),
@@ -221,36 +221,6 @@ func writeAPIData(data []OperationData, template *template.Template) error {
 	}
 
 	return nil
-}
-
-func splitDescription(p string) (string, string) {
-	p = strings.TrimSpace(p)
-
-	// Split by empty line
-	parts := strings.SplitN(p, "\n\n", 2)
-	if len(parts) > 1 && strings.TrimSpace(parts[0]) != "" {
-		short := strings.TrimSpace(parts[0])
-		long := strings.TrimSpace(parts[1])
-
-		// No extra newline characters in between
-		short = strings.ReplaceAll(short, "\n", "")
-
-		return short, long
-	}
-
-	// No empty line: find first period
-	if idx := strings.Index(p, "."); idx != -1 {
-		short := strings.TrimSpace(p[:idx+1])
-		long := strings.TrimSpace(p[idx+1:])
-
-		// No extra newline characters in between
-		short = strings.ReplaceAll(short, "\n", "")
-
-		return short, long
-	}
-
-	// No period: entire paragraph is the shortDescription
-	return p, ""
 }
 
 func getCodeSamples(op *v3.Operation) []CodeSample {
