@@ -134,7 +134,7 @@ func SplitDescription(p string) (string, string) {
 		long := strings.TrimSpace(parts[1])
 
 		// No extra newline characters in between
-		short = strings.ReplaceAll(short, "\n", "")
+		short = strings.ReplaceAll(short, "\n", " ")
 
 		return short, long
 	}
@@ -145,7 +145,7 @@ func SplitDescription(p string) (string, string) {
 		long := strings.TrimSpace(p[idx+1:])
 
 		// No extra newline characters in between
-		short = strings.ReplaceAll(short, "\n", "")
+		short = strings.ReplaceAll(short, "\n", " ")
 
 		return short, long
 	}

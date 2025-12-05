@@ -20,14 +20,14 @@ Versions of the API clients not listed on this page aren't covered by the [Algol
 </thead>
 <tbody>
 {{- range .Versions }}
-{{- if eq .Info.SlaStatus "eligible" }}
+{{- if eq .Info.SLAStatus "eligible" }}
 <tr>
 <td>{{ .Version }}</td>
 <td>{{ .Info.ReleaseDate }}</td>
-{{- if .Info.SlaEndDate }}
-<td className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100 pr-2">{{ capitalize .Info.SlaStatus }} until {{ .Info.SlaEndDate }}</td>
+{{- if .Info.SLAEndDate }}
+<td className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100 pr-2">{{ capitalize .Info.SLAStatus }} until {{ .Info.SLAEndDate }}</td>
 {{- else }}
-<td className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 pr-2">{{ capitalize .Info.SlaStatus }}</td>
+<td className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 pr-2">{{ capitalize .Info.SLAStatus }}</td>
 {{- end }}
 </tr>
 {{- end }}
