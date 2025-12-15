@@ -19,7 +19,7 @@ jobs:
       - name: Generate new README
         run: go run ./internal/docs
       - name: Create new PR if changes
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: "docs: update README"
           title: "docs: update README"
