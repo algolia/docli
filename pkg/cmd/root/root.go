@@ -16,6 +16,7 @@ func NewRootCmd() *cobra.Command {
 		"indent": func(n int, s string) string {
 			pad := strings.Repeat(" ", n)
 			s = strings.TrimSpace(s)
+
 			lines := strings.Split(s, "\n")
 			for i, l := range lines {
 				if strings.TrimSpace(l) != "" {

@@ -136,7 +136,6 @@ func getAPIOverviewData(
 	doc *libopenapi.DocumentModel[v3.Document],
 	opts *Options,
 ) (OverviewData, error) {
-
 	result := OverviewData{
 		OutputFilename:   fmt.Sprintf("%s.mdx", opts.APIName),
 		OutputPath:       opts.OutputDirectory,

@@ -47,6 +47,7 @@ func renderAll(root *cobra.Command) []byte {
 
 func walk(c *cobra.Command, visit func(*cobra.Command, int)) {
 	var rec func(*cobra.Command, int)
+
 	rec = func(cmd *cobra.Command, depth int) {
 		if cmd.Hidden {
 			return
