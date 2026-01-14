@@ -65,7 +65,7 @@ See the individual subcommands to learn what content you can generate.
 
 **Aliases:** `gen`, `g`
 
-**Subcommands:** `cdn`, `clients`, `openapi`, `sla`, `snippets`
+**Subcommands:** `cdn`, `clients`, `guides`, `openapi`, `sla`, `snippets`
 
 #### `docli generate cdn`
 
@@ -126,6 +126,31 @@ you need to update or delete its MDX file manually.
 ```sh
 # Run from root of algolia/docs-new
 docli gen clients specs/search.yml -o doc/libraries/sdk/methods
+```
+
+**Flags**
+
+`-h, --help`  Help for this command
+
+`-o, --output string`  Output directory for generated MDX files (default: `out`)
+
+
+#### `docli generate guides`
+
+```sh
+docli generate guides <guides> [flags]
+```
+
+Generate guide snippets from a JSON file.
+
+This command reads a data file with guide snippets.
+It generates an MDX file for each guide.
+
+**Examples**
+
+```sh
+# Run from root of algolia/docs-new
+docli gen guides guides.json -o snippets/guides
 ```
 
 **Flags**

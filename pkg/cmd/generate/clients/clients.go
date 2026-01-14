@@ -203,7 +203,7 @@ func getAPIData(
 // writeAPIData writes the OpenAPI data to MDX files.
 func writeAPIData(data []OperationData, template *template.Template) error {
 	for _, item := range data {
-		if err := os.MkdirAll(item.OutputPath, 0o755); err != nil {
+		if err := os.MkdirAll(item.OutputPath, 0o700); err != nil {
 			return err
 		}
 

@@ -89,7 +89,7 @@ func runCommand(opts *Options) {
 		log.Fatalf("error: %e", err)
 	}
 
-	if err = os.MkdirAll(opts.OutputDirectory, 0o755); err != nil {
+	if err = os.MkdirAll(opts.OutputDirectory, 0o700); err != nil {
 		log.Fatalf("error: %e", err)
 	}
 

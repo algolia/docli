@@ -1,4 +1,4 @@
-package snippets
+package guides
 
 import (
 	"encoding/json"
@@ -16,30 +16,30 @@ import (
 )
 
 type Options struct {
-	SnippetsFile    string
+	GuidesFile      string
 	OutputDirectory string
 }
 
-// NestedMap represents the data from the nested snippet file.
-type NestedMap map[string]map[string]map[string]string
+// GuidesMap represents the data from a guide file.
+type GuidesMap map[string]map[string]string
 
-func NewSnippetsCommand() *cobra.Command {
+func NewGuidesCommand() *cobra.Command {
 	opts := &Options{}
 
 	cmd := &cobra.Command{
-		Use:   "snippets <snippets>",
-		Short: "Generate API client example snippets from an OpenAPI snippet file",
+		Use:   "guides <guides>",
+		Short: "Generate guide snippets from a JSON file",
 		Long: heredoc.Doc(`
-			This command reads a data file with API client usage snippets.
-			It generates an MDX file for each snippet so you can include them in the docs.
+			This command reads a data file with guide snippets.
+			It generates an MDX file for each guide.
 		`),
 		Example: heredoc.Doc(`
 			# Run from root of algolia/docs-new
-			docli gen snippets specs/search-snippets.json -o snippets/openapi-snippets
+			docli gen guides guides.json -o snippets/guides
 		`),
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			opts.SnippetsFile = args[0]
+			opts.GuidesFile = args[0]
 			runCommand(opts)
 		},
 	}
@@ -51,31 +51,34 @@ func NewSnippetsCommand() *cobra.Command {
 }
 
 func runCommand(opts *Options) {
-	bytes, err := os.ReadFile(opts.SnippetsFile)
+	bytes, err := os.ReadFile(opts.GuidesFile)
 	if err != nil {
 		log.Fatalf("Error: %e", err)
 	}
 
-	var data NestedMap
+	var data GuidesMap
 	if err := json.Unmarshal(bytes, &data); err != nil {
 		log.Fatalf("Error: %e", err)
 	}
 
-	fmt.Printf("Generating usage snippet files for: %s\n", opts.SnippetsFile)
+	fmt.Printf("Generating guide snippet files for: %s\n", opts.GuidesFile)
 	fmt.Printf("Writing output in: %s\n", opts.OutputDirectory)
 
-	rawSnippets := invertSnippets(data)
+	guideNames := make([]string, 0, len(data))
+	for guide := range data {
+		guideNames = append(guideNames, guide)
+	}
 
-	for snippet, examples := range rawSnippets {
-		for name, example := range examples {
-			err := writeSnippet(
-				filepath.Join(opts.OutputDirectory, utils.ToKebabCase(snippet)),
-				fmt.Sprintf("%s.mdx", utils.ToCamelCase(name)),
-				generateMarkdownSnippet(example),
-			)
-			if err != nil {
-				log.Fatalf("Error: %e", err)
-			}
+	sort.Strings(guideNames)
+
+	for _, guide := range guideNames {
+		err := writeGuide(
+			opts.OutputDirectory,
+			fmt.Sprintf("%s.mdx", utils.ToKebabCase(guide)),
+			generateMarkdownSnippet(data[guide]),
+		)
+		if err != nil {
+			log.Fatalf("Error: %e", err)
 		}
 	}
 }
@@ -119,32 +122,8 @@ func sortLanguages(snippet map[string]string) []string {
 	return sorted
 }
 
-// invertSnippets converts the original structure LANG -> SNIPPET -> VARIANT
-// and returns SNIPPET -> EXAMPLE -> LANG.
-func invertSnippets(data NestedMap) NestedMap {
-	result := make(NestedMap)
-
-	for lang, snippets := range data {
-		for snippet, examples := range snippets {
-			if _, ok := result[snippet]; !ok {
-				result[snippet] = make(map[string]map[string]string)
-			}
-
-			for example, code := range examples {
-				if _, ok := result[snippet][example]; !ok {
-					result[snippet][example] = make(map[string]string)
-				}
-
-				result[snippet][example][lang] = code
-			}
-		}
-	}
-
-	return result
-}
-
-// writeSnippet writes the snippets into MDX files.
-func writeSnippet(path string, filename string, snippet string) error {
+// writeGuide writes the guide snippets into MDX files.
+func writeGuide(path string, filename string, snippet string) error {
 	err := os.MkdirAll(path, 0o700)
 	if err != nil {
 		return err
@@ -156,8 +135,11 @@ func writeSnippet(path string, filename string, snippet string) error {
 	if err != nil {
 		return err
 	}
+	defer out.Close()
 
-	out.WriteString(snippet)
+	if _, err := out.WriteString(snippet); err != nil {
+		return err
+	}
 
 	return nil
 }
