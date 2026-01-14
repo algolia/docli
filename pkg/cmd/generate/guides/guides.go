@@ -35,7 +35,7 @@ func NewGuidesCommand() *cobra.Command {
 		`),
 		Example: heredoc.Doc(`
 			# Run from root of algolia/docs-new
-			docli gen guides guides.json -o snippets/guides
+			docli gen guides guides.json -o openapi-snippets/guides
 		`),
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {

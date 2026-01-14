@@ -150,7 +150,7 @@ It generates an MDX file for each guide.
 
 ```sh
 # Run from root of algolia/docs-new
-docli gen guides guides.json -o snippets/guides
+docli gen guides guides.json -o openapi-snippets/guides
 ```
 
 **Flags**
@@ -236,7 +236,7 @@ It generates an MDX file for each snippet so you can include them in the docs.
 
 ```sh
 # Run from root of algolia/docs-new
-docli gen snippets specs/search-snippets.json -o snippets/openapi-snippets
+docli gen snippets specs/search-snippets.json -o openapi-snippets/search
 ```
 
 **Flags**

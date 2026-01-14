@@ -35,7 +35,7 @@ func NewSnippetsCommand() *cobra.Command {
 		`),
 		Example: heredoc.Doc(`
 			# Run from root of algolia/docs-new
-			docli gen snippets specs/search-snippets.json -o snippets/openapi-snippets
+			docli gen snippets specs/search-snippets.json -o openapi-snippets/search
 		`),
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
