@@ -145,7 +145,7 @@ func invertSnippets(data NestedMap) NestedMap {
 
 // writeSnippet writes the snippets into MDX files.
 func writeSnippet(path string, filename string, snippet string) error {
-	err := os.MkdirAll(path, 0o755)
+	err := os.MkdirAll(path, 0o700)
 	if err != nil {
 		return err
 	}

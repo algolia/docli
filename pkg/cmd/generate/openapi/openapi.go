@@ -212,7 +212,7 @@ func getAPIData(
 
 // writeOverviewData writes the API's overview data into an MDX file.
 func writeOverviewData(data OverviewData, template *template.Template) error {
-	err := os.MkdirAll(data.OutputPath, 0o755)
+	err := os.MkdirAll(data.OutputPath, 0o700)
 	if err != nil {
 		return err
 	}
@@ -235,7 +235,7 @@ func writeOverviewData(data OverviewData, template *template.Template) error {
 // writeAPIData writes the OpenAPI data of a single operation to an MDX stub file.
 func writeAPIData(data []OperationData, template *template.Template) error {
 	for _, item := range data {
-		err := os.MkdirAll(item.OutputPath, 0o755)
+		err := os.MkdirAll(item.OutputPath, 0o700)
 		if err != nil {
 			return err
 		}

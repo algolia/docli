@@ -124,7 +124,7 @@ func sortLanguages(snippet map[string]string) []string {
 
 // writeGuide writes the guide snippets into MDX files.
 func writeGuide(path string, filename string, snippet string) error {
-	err := os.MkdirAll(path, 0o755)
+	err := os.MkdirAll(path, 0o700)
 	if err != nil {
 		return err
 	}
