@@ -160,6 +160,7 @@ func TestGetLatestVersionNotFound(t *testing.T) {
 	defer server.Close()
 
 	pkg := &Package{PackageName: "typo"}
+
 	err := getLatestVersion(server.URL, pkg)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
@@ -239,6 +240,7 @@ func TestGetIncludeLinksNotFound(t *testing.T) {
 		Version:     "0.0.0",
 		Name:        "snippet404",
 	}
+
 	err := getIncludeLinks(server.URL, pkg)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
