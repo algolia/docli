@@ -7,6 +7,8 @@ builds:
       - CGO_ENABLED=0
     goos: [linux, darwin]
     goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X github.com/algolia/docli/pkg/cmd/root.version={{ .Version }}
 archives:
   - formats: [tar.gz]
     # this name template makes the OS and Arch compatible with the results of `uname`.
