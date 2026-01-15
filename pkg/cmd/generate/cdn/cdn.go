@@ -65,7 +65,7 @@ func NewCdnCommand() *cobra.Command {
 		`),
 		Example: heredoc.Doc(`
 			# Run from the root of algolia/docs-new
-			docli gen cdn -o snippets/autocomplete/includes -d cdn.yml -t templates
+			docli gen cdn -o include-snippets [-d cdn.yml] [-t templates]
 		`),
 		Run: func(cmd *cobra.Command, _ []string) {
 			runCommand(opts)
