@@ -166,6 +166,10 @@ func getLatestVersion(baseURL string, p *Package) error {
 	}
 	defer res.Body.Close()
 
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("request to %s failed with status %s", url, res.Status)
+	}
+
 	var versionData struct {
 		Tags     map[string]string `json:"tags"`
 		Versions []string          `json:"versions"`
@@ -188,6 +192,10 @@ func getIncludeLinks(baseURL string, p *Package) error {
 		return err
 	}
 	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("request to %s failed with status %s", url, res.Status)
+	}
 
 	type CDNFile struct {
 		Name string `json:"name"`

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -152,6 +153,23 @@ func TestGetLatestVersion(t *testing.T) {
 	}
 }
 
+func TestGetLatestVersionNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	pkg := &Package{PackageName: "typo"}
+	err := getLatestVersion(server.URL, pkg)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "404") {
+		t.Fatalf("expected 404 error, got %v", err)
+	}
+}
+
 func TestGetIncludeLinksDefaultInclude(t *testing.T) {
 	fakeData := struct {
 		Default string `json:"default"`
@@ -207,6 +225,27 @@ func TestGetIncludeLinksDefaultInclude(t *testing.T) {
 	)
 	if pkg.Src != expectedSrc {
 		t.Errorf("got Src=%q; want %q", pkg.Src, expectedSrc)
+	}
+}
+
+func TestGetIncludeLinksNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	pkg := &Package{
+		PackageName: "typo",
+		Version:     "0.0.0",
+		Name:        "snippet404",
+	}
+	err := getIncludeLinks(server.URL, pkg)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "404") {
+		t.Fatalf("expected 404 error, got %v", err)
 	}
 }
 
