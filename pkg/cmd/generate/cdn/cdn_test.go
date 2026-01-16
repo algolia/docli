@@ -190,8 +190,8 @@ func TestResolverResolveDefaultFile(t *testing.T) {
 		t.Errorf("got File=%q; want %q", resolved.File, "/index.js")
 	}
 
-	if resolved.Integrity != "HASH_INDEX" {
-		t.Errorf("got Integrity=%q; want %q", resolved.Integrity, "HASH_INDEX")
+	if resolved.Integrity != "sha256-HASH_INDEX" {
+		t.Errorf("got Integrity=%q; want %q", resolved.Integrity, "sha256-HASH_INDEX")
 	}
 
 	expectedSrc := fmt.Sprintf(
@@ -262,8 +262,8 @@ func TestResolverResolveCustomFile(t *testing.T) {
 		t.Errorf("got File=%q; want %q", resolved.File, "/other.js")
 	}
 
-	if resolved.Integrity != "HASH_OTHER" {
-		t.Errorf("got Integrity=%q; want %q", resolved.Integrity, "HASH_OTHER")
+	if resolved.Integrity != "sha256-HASH_OTHER" {
+		t.Errorf("got Integrity=%q; want %q", resolved.Integrity, "sha256-HASH_OTHER")
 	}
 }
 

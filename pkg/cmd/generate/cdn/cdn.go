@@ -302,7 +302,7 @@ func (r *Resolver) cdnFiles(
 
 	hashes := make(map[string]string, len(cdnFiles.Files))
 	for _, cdnFile := range cdnFiles.Files {
-		hashes[cdnFile.Name] = cdnFile.Hash
+		hashes[cdnFile.Name] = "sha256-" + cdnFile.Hash
 	}
 
 	r.storeCDNFiles(packageName, version, hashes)
