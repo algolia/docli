@@ -3,7 +3,7 @@ package clients
 import (
 	_ "embed"
 	"fmt"
-	"log"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +12,8 @@ import (
 	"github.com/MakeNowJust/heredoc"
 	"github.com/algolia/docli/pkg/cmd/generate/utils"
 	"github.com/algolia/docli/pkg/dictionary"
+	"github.com/algolia/docli/pkg/output"
+	"github.com/algolia/docli/pkg/validate"
 	"github.com/pb33f/libopenapi"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 	"github.com/spf13/cobra"
@@ -89,10 +91,16 @@ func NewClientsCommand() *cobra.Command {
 			docli gen clients specs/search.yml -o doc/libraries/sdk/methods
 		`),
 		Args: cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.InputFilename = args[0]
 			opts.APIName = utils.GetAPIName(opts.InputFilename)
-			runCommand(opts)
+
+			printer, err := output.New(cmd)
+			if err != nil {
+				return err
+			}
+
+			return runCommand(opts, printer)
 		},
 	}
 
@@ -102,30 +110,44 @@ func NewClientsCommand() *cobra.Command {
 	return cmd
 }
 
-func runCommand(opts *Options) {
-	specFile, err := os.ReadFile(opts.InputFilename)
-	if err != nil {
-		log.Fatalf("Error: %e", err)
+func runCommand(opts *Options, printer *output.Printer) error {
+	if err := validate.ExistingFile(opts.InputFilename, "spec file"); err != nil {
+		return err
 	}
 
-	fmt.Printf("Generating API client references for spec: %s\n", opts.InputFilename)
-	fmt.Printf("Writing output in: %s\n", opts.OutputDirectory)
+	if err := validate.OutputDir(opts.OutputDirectory, "output directory"); err != nil {
+		return err
+	}
+
+	specFile, err := os.ReadFile(opts.InputFilename)
+	if err != nil {
+		return fmt.Errorf("read spec file %s: %w", opts.InputFilename, err)
+	}
+
+	printer.Infof("Generating API client references for spec: %s\n", opts.InputFilename)
+	printer.Infof("Writing output in: %s\n", opts.OutputDirectory)
 
 	spec, err := utils.LoadSpec(specFile)
 	if err != nil {
-		log.Fatalf("Error: %e", err)
+		return fmt.Errorf("load spec %s: %w", opts.InputFilename, err)
 	}
 
 	opData, err := getAPIData(spec, opts)
 	if err != nil {
-		log.Fatalf("Error: %e", err)
+		return fmt.Errorf("parse spec %s: %w", opts.InputFilename, err)
 	}
+
+	printer.Verbosef("Spec %s has %d operations.\n", opts.InputFilename, len(opData))
 
 	tmpl := template.Must(template.New("method").Funcs(template.FuncMap{
 		"trim": strings.TrimSpace,
 	}).Parse(methodTemplate))
 
-	writeAPIData(opData, tmpl)
+	if err := writeAPIData(opData, tmpl, printer); err != nil {
+		return fmt.Errorf("write output: %w", err)
+	}
+
+	return nil
 }
 
 // getAPIData reads the OpenAPI spec and parses the operation data.
@@ -155,7 +177,7 @@ func getAPIData(
 
 			acl, err := utils.GetACL(op)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("get ACL for %s %s: %w", opPairs.Key(), pathName, err)
 			}
 
 			short, long := utils.SplitDescription(op.Description)
@@ -195,27 +217,27 @@ func getAPIData(
 		}
 	}
 
-	fmt.Printf("Spec %s has %d operations.\n", opts.InputFilename, count)
-
 	return result, nil
 }
 
 // writeAPIData writes the OpenAPI data to MDX files.
-func writeAPIData(data []OperationData, template *template.Template) error {
+func writeAPIData(
+	data []OperationData,
+	template *template.Template,
+	printer *output.Printer,
+) error {
 	for _, item := range data {
-		if err := os.MkdirAll(item.OutputPath, 0o700); err != nil {
-			return err
+		if !printer.IsDryRun() {
+			if err := os.MkdirAll(item.OutputPath, 0o700); err != nil {
+				return err
+			}
 		}
 
 		fullPath := filepath.Join(item.OutputPath, item.OutputFilename)
 
-		out, err := os.Create(fullPath)
-		if err != nil {
-			return err
-		}
-
-		err = template.Execute(out, item)
-		if err != nil {
+		if err := printer.WriteFile(fullPath, func(w io.Writer) error {
+			return template.Execute(w, item)
+		}); err != nil {
 			return err
 		}
 	}

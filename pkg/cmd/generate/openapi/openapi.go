@@ -3,7 +3,7 @@ package openapi
 import (
 	_ "embed"
 	"fmt"
-	"log"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +11,8 @@ import (
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/algolia/docli/pkg/cmd/generate/utils"
+	"github.com/algolia/docli/pkg/output"
+	"github.com/algolia/docli/pkg/validate"
 	"github.com/pb33f/libopenapi"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 	"github.com/spf13/cobra"
@@ -77,11 +79,16 @@ func NewOpenAPICommand() *cobra.Command {
 			docli gen stubs specs/search.yml -o doc/rest-api
     `),
 		Args: cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.InputFileName = args[0]
 			opts.APIName = utils.GetAPIName(opts.InputFileName)
 
-			runCommand(opts)
+			printer, err := output.New(cmd)
+			if err != nil {
+				return err
+			}
+
+			return runCommand(opts, printer)
 		},
 	}
 
@@ -92,43 +99,55 @@ func NewOpenAPICommand() *cobra.Command {
 }
 
 // runCommand runs the `generate openapi` command.
-func runCommand(opts *Options) {
-	specFile, err := os.ReadFile(opts.InputFileName)
-	if err != nil {
-		log.Fatalf("Error: %e", err)
+func runCommand(opts *Options, printer *output.Printer) error {
+	if err := validate.ExistingFile(opts.InputFileName, "spec file"); err != nil {
+		return err
 	}
 
-	fmt.Printf("Generating MDX stub files for spec: %s\n", opts.InputFileName)
-	fmt.Printf("Writing output in: %s\n", opts.OutputDirectory)
+	if err := validate.OutputDir(opts.OutputDirectory, "output directory"); err != nil {
+		return err
+	}
+
+	specFile, err := os.ReadFile(opts.InputFileName)
+	if err != nil {
+		return fmt.Errorf("read spec file %s: %w", opts.InputFileName, err)
+	}
+
+	printer.Infof("Generating MDX stub files for spec: %s\n", opts.InputFileName)
+	printer.Infof("Writing output in: %s\n", opts.OutputDirectory)
 
 	spec, err := utils.LoadSpec(specFile)
 	if err != nil {
-		log.Fatalf("Error: %e", err)
+		return fmt.Errorf("load spec %s: %w", opts.InputFileName, err)
 	}
 
 	overviewData, err := getAPIOverviewData(spec, opts)
 	if err != nil {
-		log.Fatalf("Error: %e", err)
+		return fmt.Errorf("build overview data for %s: %w", opts.InputFileName, err)
 	}
 
 	ovTmpl := template.Must(template.New("overview").Parse(overviewTemplate))
 
-	err = writeOverviewData(overviewData, ovTmpl)
+	err = writeOverviewData(overviewData, ovTmpl, printer)
 	if err != nil {
-		log.Fatalf("Error: %e", err)
+		return fmt.Errorf("write overview: %w", err)
 	}
 
 	opData, err := getAPIData(spec, opts)
 	if err != nil {
-		log.Fatalf("Error: %e", err)
+		return fmt.Errorf("build operation data for %s: %w", opts.InputFileName, err)
 	}
+
+	printer.Verbosef("Spec %s has %d operations.\n", opts.InputFileName, len(opData))
 
 	tmpl := template.Must(template.New("stub").Parse(stubTemplate))
 
-	err = writeAPIData(opData, tmpl)
+	err = writeAPIData(opData, tmpl, printer)
 	if err != nil {
-		log.Fatalf("Error: %e", err)
+		return fmt.Errorf("write operations: %w", err)
 	}
+
+	return nil
 }
 
 // getAPIOverviewData generates MDX stub data for the API spec.
@@ -172,7 +191,7 @@ func getAPIData(
 
 			acl, err := utils.GetACL(op)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("get ACL for %s %s: %w", opPairs.Key(), pathName, err)
 			}
 
 			data := OperationData{
@@ -205,50 +224,46 @@ func getAPIData(
 		}
 	}
 
-	fmt.Printf("Spec %s has %d operations.\n", opts.InputFileName, count)
-
 	return result, nil
 }
 
 // writeOverviewData writes the API's overview data into an MDX file.
-func writeOverviewData(data OverviewData, template *template.Template) error {
-	err := os.MkdirAll(data.OutputPath, 0o700)
-	if err != nil {
-		return err
+func writeOverviewData(
+	data OverviewData,
+	template *template.Template,
+	printer *output.Printer,
+) error {
+	if !printer.IsDryRun() {
+		if err := os.MkdirAll(data.OutputPath, 0o700); err != nil {
+			return err
+		}
 	}
 
 	fullPath := filepath.Join(data.OutputPath, data.OutputFilename)
 
-	out, err := os.Create(fullPath)
-	if err != nil {
-		return err
-	}
-
-	err = template.Execute(out, data)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return printer.WriteFile(fullPath, func(w io.Writer) error {
+		return template.Execute(w, data)
+	})
 }
 
 // writeAPIData writes the OpenAPI data of a single operation to an MDX stub file.
-func writeAPIData(data []OperationData, template *template.Template) error {
+func writeAPIData(
+	data []OperationData,
+	template *template.Template,
+	printer *output.Printer,
+) error {
 	for _, item := range data {
-		err := os.MkdirAll(item.OutputPath, 0o700)
-		if err != nil {
-			return err
+		if !printer.IsDryRun() {
+			if err := os.MkdirAll(item.OutputPath, 0o700); err != nil {
+				return err
+			}
 		}
 
 		fullPath := filepath.Join(item.OutputPath, item.OutputFilename)
 
-		out, err := os.Create(fullPath)
-		if err != nil {
-			return err
-		}
-
-		err = template.Execute(out, item)
-		if err != nil {
+		if err := printer.WriteFile(fullPath, func(w io.Writer) error {
+			return template.Execute(w, item)
+		}); err != nil {
 			return err
 		}
 	}

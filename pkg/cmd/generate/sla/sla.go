@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"sort"
 	"text/template"
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/algolia/docli/pkg/cmd/generate/utils"
+	"github.com/algolia/docli/pkg/output"
+	"github.com/algolia/docli/pkg/validate"
 	"github.com/spf13/cobra"
 	"golang.org/x/mod/semver"
 )
@@ -71,9 +72,15 @@ func NewSLACommand() *cobra.Command {
 		  	-o doc/libraries/sdk/versions.mdx \
 				--versions-snippets-file snippets/sdk/versions.mdx`),
 		Args: cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.DataFile = args[0]
-			runCommand(opts)
+
+			printer, err := output.New(cmd)
+			if err != nil {
+				return err
+			}
+
+			return runCommand(opts, printer)
 		},
 	}
 
@@ -85,16 +92,23 @@ func NewSLACommand() *cobra.Command {
 	return cmd
 }
 
-func runCommand(opts *Options) {
+func runCommand(opts *Options, printer *output.Printer) error {
+	if err := validateOptions(opts, printer.IsDryRun()); err != nil {
+		return err
+	}
+
 	// Read data
 	rawData, err := os.ReadFile(opts.DataFile)
 	if err != nil {
-		log.Fatalf("can't read data file: %v", err)
+		return fmt.Errorf("read data file %s: %w", opts.DataFile, err)
 	}
+
+	printer.Infof("Generating SLA page for: %s\n", opts.DataFile)
+	logOutputTargets(opts, printer)
 
 	data, err := parseVersions(rawData)
 	if err != nil {
-		log.Fatalf("error: %v", err)
+		return fmt.Errorf("parse data file %s: %w", opts.DataFile, err)
 	}
 
 	sorted := sortVersions(&data)
@@ -104,28 +118,11 @@ func runCommand(opts *Options) {
 		"getLanguageName": utils.GetLanguageName,
 	}
 
-	var output io.Writer
-	if opts.Output == "" {
-		output = os.Stdout
-	} else {
-		output, err = os.Create(opts.Output)
-		if err != nil {
-			log.Fatalf("error: %v", err)
-		}
+	if err := writePageOutput(opts.Output, sorted, funcMap, printer); err != nil {
+		return err
 	}
 
-	if err = renderPage(output, pageTemplate, sorted, funcMap); err != nil {
-		log.Fatalf("error: %v", err)
-	}
-
-	if opts.VersionsFile != "" {
-		versionsOutput, err := os.Create(opts.VersionsFile)
-		if err != nil {
-			log.Fatalf("error: %v", err)
-		}
-
-		renderVersionsFile(versionsOutput, sorted)
-	}
+	return writeVersionsIfNeeded(opts.VersionsFile, sorted, printer)
 }
 
 // parseVersions reads a JSON file and parses it into a Clients struct.
@@ -200,6 +197,79 @@ func renderPage(
 	}
 
 	return nil
+}
+
+func validateOptions(opts *Options, dryRun bool) error {
+	if err := validate.ExistingFile(opts.DataFile, "data file"); err != nil {
+		return err
+	}
+
+	if opts.Output != "" {
+		if dryRun {
+			if err := validate.OutputFileDryRun(opts.Output, "output file"); err != nil {
+				return err
+			}
+		} else if err := validate.OutputFile(opts.Output, "output file"); err != nil {
+			return err
+		}
+	}
+
+	if opts.VersionsFile != "" {
+		if dryRun {
+			if err := validate.OutputFileDryRun(opts.VersionsFile, "versions file"); err != nil {
+				return err
+			}
+		} else if err := validate.OutputFile(opts.VersionsFile, "versions file"); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func logOutputTargets(opts *Options, printer *output.Printer) {
+	if opts.Output != "" {
+		printer.Infof("Writing output to: %s\n", opts.Output)
+	}
+
+	if opts.VersionsFile != "" {
+		printer.Infof("Writing versions snippet to: %s\n", opts.VersionsFile)
+	}
+}
+
+func writeVersionsIfNeeded(path string, data []ClientEntry, printer *output.Printer) error {
+	if path == "" {
+		return nil
+	}
+
+	return writeVersionsOutput(path, data, printer)
+}
+
+func writePageOutput(
+	outputPath string,
+	data []ClientEntry,
+	funcMap template.FuncMap,
+	printer *output.Printer,
+) error {
+	if outputPath == "" {
+		return renderPage(os.Stdout, pageTemplate, data, funcMap)
+	}
+
+	return printer.WriteFile(outputPath, func(w io.Writer) error {
+		if err := renderPage(w, pageTemplate, data, funcMap); err != nil {
+			return fmt.Errorf("render page: %w", err)
+		}
+
+		return nil
+	})
+}
+
+func writeVersionsOutput(outputPath string, data []ClientEntry, printer *output.Printer) error {
+	return printer.WriteFile(outputPath, func(w io.Writer) error {
+		renderVersionsFile(w, data)
+
+		return nil
+	})
 }
 
 func renderVersionsFile(w io.Writer, data []ClientEntry) {

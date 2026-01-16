@@ -1,8 +1,11 @@
 package cdn
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,9 +14,15 @@ import (
 	"testing"
 )
 
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (fn roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return fn(req)
+}
+
 func TestReadData(t *testing.T) {
 	type want struct {
-		packages []Package
+		packages []PackageSpec
 		err      bool
 	}
 
@@ -29,11 +38,10 @@ func TestReadData(t *testing.T) {
   name: foo
 `,
 			want: want{
-				packages: []Package{
+				packages: []PackageSpec{
 					{
-						File:        "/foo.js",
-						Name:        "foo",
-						PackageName: "foo",
+						File: "/foo.js",
+						Name: "foo",
 					},
 				},
 				err: false,
@@ -46,11 +54,10 @@ func TestReadData(t *testing.T) {
   name: foo
 `,
 			want: want{
-				packages: []Package{
+				packages: []PackageSpec{
 					{
-						File:        "/foo.js",
-						Name:        "foo",
-						PackageName: "foo",
+						File: "foo.js",
+						Name: "foo",
 					},
 				},
 				err: false,
@@ -90,7 +97,7 @@ func TestReadData(t *testing.T) {
 				filename = filepath.Join(dir, "does-not-exist.yaml")
 			}
 
-			got, err := readData(filename)
+			got, err := readCDNDataFile(filename)
 			if tt.want.err {
 				if err == nil {
 					t.Fatalf("expected an error, got %v", got)
@@ -124,195 +131,301 @@ func TestReadData(t *testing.T) {
 	}
 }
 
-func TestGetLatestVersion(t *testing.T) {
-	fakeData := struct {
-		Tags     map[string]string `json:"tags"`
-		Versions []string          `json:"versions"`
-	}{
-		Tags:     map[string]string{"latest": "1.2.3"},
-		Versions: []string{"1.0.0", "1.2.3"},
-	}
-	payload, _ := json.Marshal(fakeData)
+func TestResolverResolveDefaultFile(t *testing.T) {
+	npmPayload, _ := json.Marshal(packageMetadata{
+		DistTags: map[string]string{"latest": "1.2.3"},
+		Versions: map[string]packageVersion{
+			"1.2.3": {JSDelivr: "index.js"},
+		},
+	})
 
-	// Fake a server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	npmServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(payload)
+		w.Write(npmPayload)
 	}))
-	defer server.Close()
+	defer npmServer.Close()
 
-	pkg := &Package{PackageName: "foo"}
-	if err := getLatestVersion(server.URL, pkg); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	want := "1.2.3"
-	if pkg.Version != want {
-		t.Errorf("got Version=%q; want %q", pkg.Version, want)
-	}
-}
-
-func TestGetLatestVersionNotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	pkg := &Package{PackageName: "typo"}
-
-	err := getLatestVersion(server.URL, pkg)
-	if err == nil {
-		t.Fatalf("expected error, got nil")
-	}
-
-	if !strings.Contains(err.Error(), "404") {
-		t.Fatalf("expected 404 error, got %v", err)
-	}
-}
-
-func TestGetIncludeLinksDefaultInclude(t *testing.T) {
-	fakeData := struct {
-		Default string `json:"default"`
-		Files   []struct {
+	cdnPayload, _ := json.Marshal(struct {
+		Files []struct {
 			Name string `json:"name"`
 			Hash string `json:"hash"`
 		} `json:"files"`
 	}{
-		Default: "/index.js",
 		Files: []struct {
 			Name string `json:"name"`
 			Hash string `json:"hash"`
 		}{
 			{Name: "/index.js", Hash: "HASH_INDEX"},
-			{Name: "/other.js", Hash: "HASH_OTHER"},
 		},
-	}
-	payload, _ := json.Marshal(fakeData)
+	})
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	cdnServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(payload)
+		w.Write(cdnPayload)
 	}))
-	defer server.Close()
+	defer cdnServer.Close()
 
-	pkg := &Package{
+	resolver := NewResolver(nil)
+	resolver.npmRegistryURL = npmServer.URL
+	resolver.jsDelivrDataURL = cdnServer.URL
+	resolver.jsDelivrCdnURL = "https://cdn.example.test"
+
+	pkg := PackageSpec{
 		PackageName: "foo",
-		Version:     "1.2.3",
 		Name:        "snippet1",
 	}
-	if err := getIncludeLinks(server.URL, pkg); err != nil {
+
+	resolved, err := resolver.Resolve(pkg)
+	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// After calling, pkg.File should be "/index.js"
-	if pkg.File != "/index.js" {
-		t.Errorf("got File=%q; want %q", pkg.File, "/index.js")
+	if resolved.Version != "1.2.3" {
+		t.Errorf("got Version=%q; want %q", resolved.Version, "1.2.3")
 	}
 
-	// Integrity should match the hash for "/index.js"
-	if pkg.Integrity != "HASH_INDEX" {
-		t.Errorf("got Integrity=%q; want %q", pkg.Integrity, "HASH_INDEX")
+	if resolved.File != "/index.js" {
+		t.Errorf("got File=%q; want %q", resolved.File, "/index.js")
 	}
 
-	// Src should be formatted as JSDELIVR_CDN_URL + "/foo@1.2.3/index.js"
+	if resolved.Integrity != "HASH_INDEX" {
+		t.Errorf("got Integrity=%q; want %q", resolved.Integrity, "HASH_INDEX")
+	}
+
 	expectedSrc := fmt.Sprintf(
 		"%s/%s@%s%s",
-		jsDelivrCdnURL,
-		pkg.PackageName,
-		pkg.Version,
-		pkg.File,
+		resolver.jsDelivrCdnURL,
+		resolved.PackageName,
+		resolved.Version,
+		resolved.File,
 	)
-	if pkg.Src != expectedSrc {
-		t.Errorf("got Src=%q; want %q", pkg.Src, expectedSrc)
+	if resolved.Src != expectedSrc {
+		t.Errorf("got Src=%q; want %q", resolved.Src, expectedSrc)
 	}
 }
 
-func TestGetIncludeLinksNotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
+func TestResolverResolveCustomFile(t *testing.T) {
+	npmPayload, _ := json.Marshal(packageMetadata{
+		DistTags: map[string]string{"latest": "1.2.3"},
+		Versions: map[string]packageVersion{
+			"1.2.3": {JSDelivr: "index.js"},
+		},
+	})
+
+	npmServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(npmPayload)
 	}))
-	defer server.Close()
+	defer npmServer.Close()
 
-	pkg := &Package{
-		PackageName: "typo",
-		Version:     "0.0.0",
-		Name:        "snippet404",
-	}
-
-	err := getIncludeLinks(server.URL, pkg)
-	if err == nil {
-		t.Fatalf("expected error, got nil")
-	}
-
-	if !strings.Contains(err.Error(), "404") {
-		t.Fatalf("expected 404 error, got %v", err)
-	}
-}
-
-func TestGetIncludeLinksCustomFile(t *testing.T) {
-	fakeData := struct {
-		Default string `json:"default"`
-		Files   []struct {
+	cdnPayload, _ := json.Marshal(struct {
+		Files []struct {
 			Name string `json:"name"`
 			Hash string `json:"hash"`
 		} `json:"files"`
 	}{
-		Default: "/index.js",
 		Files: []struct {
 			Name string `json:"name"`
 			Hash string `json:"hash"`
 		}{
-			{Name: "/index.js", Hash: "HASH_INDEX"},
 			{Name: "/other.js", Hash: "HASH_OTHER"},
 		},
-	}
-	payload, _ := json.Marshal(fakeData)
+	})
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	cdnServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(payload)
+		w.Write(cdnPayload)
 	}))
-	defer server.Close()
+	defer cdnServer.Close()
 
-	// Set pkg.File explicitly to "/other.js"
-	pkg := &Package{
+	resolver := NewResolver(nil)
+	resolver.npmRegistryURL = npmServer.URL
+	resolver.jsDelivrDataURL = cdnServer.URL
+	resolver.jsDelivrCdnURL = "https://cdn.example.test"
+
+	pkg := PackageSpec{
 		PackageName: "bar",
 		File:        "/other.js",
 		Name:        "snippet2",
 	}
-	if err := getIncludeLinks(server.URL, pkg); err != nil {
+
+	resolved, err := resolver.Resolve(pkg)
+	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// File should remain "/other.js"
-	if pkg.File != "/other.js" {
-		t.Errorf("got File=%q; want %q", pkg.File, "/other.js")
+	if resolved.File != "/other.js" {
+		t.Errorf("got File=%q; want %q", resolved.File, "/other.js")
 	}
 
-	// Integrity should match the hash for "/other.js"
-	if pkg.Integrity != "HASH_OTHER" {
-		t.Errorf("got Integrity=%q; want %q", pkg.Integrity, "HASH_OTHER")
+	if resolved.Integrity != "HASH_OTHER" {
+		t.Errorf("got Integrity=%q; want %q", resolved.Integrity, "HASH_OTHER")
+	}
+}
+
+func TestResolverResolveMetadataNotFound(t *testing.T) {
+	npmServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer npmServer.Close()
+
+	resolver := NewResolver(nil)
+	resolver.npmRegistryURL = npmServer.URL
+	resolver.jsDelivrDataURL = npmServer.URL
+
+	pkg := PackageSpec{
+		PackageName: "typo",
+		Name:        "snippet404",
+	}
+
+	err := func() error {
+		_, err := resolver.Resolve(pkg)
+
+		return err
+	}()
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "404") {
+		t.Fatalf("expected 404 error, got %v", err)
+	}
+}
+
+func TestResolverResolveWithContextCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	sawCanceled := false
+	client := &http.Client{
+		Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			if errors.Is(req.Context().Err(), context.Canceled) {
+				sawCanceled = true
+
+				return nil, req.Context().Err()
+			}
+
+			return nil, fmt.Errorf("expected canceled context")
+		}),
+	}
+
+	resolver := NewResolver(client)
+	resolver.npmRegistryURL = "https://example.test"
+
+	_, err := resolver.ResolveWithContext(ctx, PackageSpec{
+		PackageName: "foo",
+		Name:        "snippet",
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context canceled error, got %v", err)
+	}
+
+	if !sawCanceled {
+		t.Fatal("expected request context to be canceled")
+	}
+}
+
+func TestResolverCachesMetadataAndCDNFiles(t *testing.T) {
+	npmPayload, _ := json.Marshal(packageMetadata{
+		DistTags: map[string]string{"latest": "1.0.0"},
+		Versions: map[string]packageVersion{
+			"1.0.0": {JSDelivr: "index.js"},
+		},
+	})
+
+	cdnPayload, _ := json.Marshal(struct {
+		Files []struct {
+			Name string `json:"name"`
+			Hash string `json:"hash"`
+		} `json:"files"`
+	}{
+		Files: []struct {
+			Name string `json:"name"`
+			Hash string `json:"hash"`
+		}{
+			{Name: "/index.js", Hash: "HASH_INDEX"},
+		},
+	})
+
+	npmURL := "https://registry.test"
+	cdnURL := "https://data.test"
+	npmCalls := 0
+	cdnCalls := 0
+
+	client := &http.Client{
+		Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			switch {
+			case strings.HasPrefix(req.URL.String(), npmURL):
+				npmCalls++
+
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body:       io.NopCloser(strings.NewReader(string(npmPayload))),
+				}, nil
+			case strings.HasPrefix(req.URL.String(), cdnURL):
+				cdnCalls++
+
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body:       io.NopCloser(strings.NewReader(string(cdnPayload))),
+				}, nil
+			default:
+				return nil, fmt.Errorf("unexpected URL: %s", req.URL.String())
+			}
+		}),
+	}
+
+	resolver := NewResolver(client)
+	resolver.npmRegistryURL = npmURL
+	resolver.jsDelivrDataURL = cdnURL
+	resolver.jsDelivrCdnURL = "https://cdn.example.test"
+
+	spec := PackageSpec{
+		PackageName: "foo",
+		Name:        "snippet",
+	}
+
+	if _, err := resolver.Resolve(spec); err != nil {
+		t.Fatalf("first resolve failed: %v", err)
+	}
+
+	if _, err := resolver.Resolve(spec); err != nil {
+		t.Fatalf("second resolve failed: %v", err)
+	}
+
+	if npmCalls != 1 {
+		t.Fatalf("expected 1 npm request, got %d", npmCalls)
+	}
+
+	if cdnCalls != 1 {
+		t.Fatalf("expected 1 CDN request, got %d", cdnCalls)
 	}
 }
 
 func TestGetTemplateSuccess(t *testing.T) {
 	dir := t.TempDir()
 
-	p := Package{Name: "foo"}
 	opts := &Options{TemplateDir: dir}
 
-	// Write a valid template file whose name matches "foo*"
-	templateFilename := filepath.Join(dir, "foo_example.tmpl")
+	// Write a valid template file with the canonical name.
+	templateFilename := filepath.Join(dir, "foo.mdx.tmpl")
 
 	content := `{{define "test"}}Hello, {{.}}{{end}}`
 	if err := os.WriteFile(templateFilename, []byte(content), 0o644); err != nil {
 		t.Fatalf("unable to write template file: %v", err)
 	}
 
-	tmpl, err := getTemplate(p, opts)
+	tmpl, err := getTemplate("foo", opts)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -326,10 +439,9 @@ func TestGetTemplateSuccess(t *testing.T) {
 func TestGetTemplateNoMatchingFiles(t *testing.T) {
 	// Empty temp dir → no files match "bar*"
 	dir := t.TempDir()
-	p := Package{Name: "bar"}
 	opts := &Options{TemplateDir: dir}
 
-	_, err := getTemplate(p, opts)
+	_, err := getTemplate("bar", opts)
 	if err == nil {
 		t.Fatal("expected error when no files match pattern, got nil")
 	}
@@ -337,18 +449,17 @@ func TestGetTemplateNoMatchingFiles(t *testing.T) {
 
 func TestGetTemplateInvalidTemplateSyntax(t *testing.T) {
 	dir := t.TempDir()
-	p := Package{Name: "baz"}
 	opts := &Options{TemplateDir: dir}
 
-	// Write a file named "baz_invalid.tmpl" with broken syntax
-	templateFilename := filepath.Join(dir, "baz_invalid.tmpl")
+	// Write a file named "baz.mdx.tmpl" with broken syntax
+	templateFilename := filepath.Join(dir, "baz.mdx.tmpl")
 	// Missing closing braces → invalid syntax
 	invalidContent := `{{define "bad"}}Unclosed...`
 	if err := os.WriteFile(templateFilename, []byte(invalidContent), 0o644); err != nil {
 		t.Fatalf("unable to write invalid template file: %v", err)
 	}
 
-	_, err := getTemplate(p, opts)
+	_, err := getTemplate("baz", opts)
 	if err == nil {
 		t.Fatal("expected parse error for invalid template syntax, got nil")
 	}
@@ -356,7 +467,6 @@ func TestGetTemplateInvalidTemplateSyntax(t *testing.T) {
 
 func TestGetTemplateMultipleFiles(t *testing.T) {
 	dir := t.TempDir()
-	p := Package{Name: "multi"}
 	opts := &Options{TemplateDir: dir}
 
 	// Create two files matching "multi*"
@@ -371,16 +481,8 @@ func TestGetTemplateMultipleFiles(t *testing.T) {
 		t.Fatalf("unable to write second template: %v", err)
 	}
 
-	tmpl, err := getTemplate(p, opts)
-	if err != nil {
-		t.Fatalf("unexpected error parsing multiple files: %v", err)
-	}
-
-	if tmpl.Lookup("one") == nil {
-		t.Errorf("expected to find defined template 'one', but got nil")
-	}
-
-	if tmpl.Lookup("two") == nil {
-		t.Errorf("expected to find defined template 'two', but got nil")
+	_, err := getTemplate("multi", opts)
+	if err == nil {
+		t.Fatal("expected error when multiple files match pattern, got nil")
 	}
 }

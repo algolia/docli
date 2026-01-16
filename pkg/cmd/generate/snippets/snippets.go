@@ -3,7 +3,7 @@ package snippets
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -12,6 +12,8 @@ import (
 	"github.com/MakeNowJust/heredoc"
 	"github.com/algolia/docli/pkg/cmd/generate/utils"
 	"github.com/algolia/docli/pkg/dictionary"
+	"github.com/algolia/docli/pkg/output"
+	"github.com/algolia/docli/pkg/validate"
 	"github.com/spf13/cobra"
 )
 
@@ -38,9 +40,15 @@ func NewSnippetsCommand() *cobra.Command {
 			docli gen snippets specs/search-snippets.json -o openapi-snippets/search
 		`),
 		Args: cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.SnippetsFile = args[0]
-			runCommand(opts)
+
+			printer, err := output.New(cmd)
+			if err != nil {
+				return err
+			}
+
+			return runCommand(opts, printer)
 		},
 	}
 
@@ -50,19 +58,27 @@ func NewSnippetsCommand() *cobra.Command {
 	return cmd
 }
 
-func runCommand(opts *Options) {
+func runCommand(opts *Options, printer *output.Printer) error {
+	if err := validate.ExistingFile(opts.SnippetsFile, "snippets file"); err != nil {
+		return err
+	}
+
+	if err := validate.OutputDir(opts.OutputDirectory, "output directory"); err != nil {
+		return err
+	}
+
 	bytes, err := os.ReadFile(opts.SnippetsFile)
 	if err != nil {
-		log.Fatalf("Error: %e", err)
+		return fmt.Errorf("read snippets file %s: %w", opts.SnippetsFile, err)
 	}
 
 	var data NestedMap
 	if err := json.Unmarshal(bytes, &data); err != nil {
-		log.Fatalf("Error: %e", err)
+		return fmt.Errorf("parse snippets file %s: %w", opts.SnippetsFile, err)
 	}
 
-	fmt.Printf("Generating usage snippet files for: %s\n", opts.SnippetsFile)
-	fmt.Printf("Writing output in: %s\n", opts.OutputDirectory)
+	printer.Infof("Generating usage snippet files for: %s\n", opts.SnippetsFile)
+	printer.Infof("Writing output in: %s\n", opts.OutputDirectory)
 
 	rawSnippets := invertSnippets(data)
 
@@ -72,12 +88,15 @@ func runCommand(opts *Options) {
 				filepath.Join(opts.OutputDirectory, utils.ToKebabCase(snippet)),
 				fmt.Sprintf("%s.mdx", utils.ToCamelCase(name)),
 				generateMarkdownSnippet(example),
+				printer,
 			)
 			if err != nil {
-				log.Fatalf("Error: %e", err)
+				return fmt.Errorf("write snippet %s/%s: %w", snippet, name, err)
 			}
 		}
 	}
+
+	return nil
 }
 
 // generateMarkdownSnippet generates a CodeGroup block.
@@ -144,20 +163,18 @@ func invertSnippets(data NestedMap) NestedMap {
 }
 
 // writeSnippet writes the snippets into MDX files.
-func writeSnippet(path string, filename string, snippet string) error {
-	err := os.MkdirAll(path, 0o700)
-	if err != nil {
-		return err
+func writeSnippet(path string, filename string, snippet string, printer *output.Printer) error {
+	if !printer.IsDryRun() {
+		if err := os.MkdirAll(path, 0o700); err != nil {
+			return err
+		}
 	}
 
 	fullPath := filepath.Join(path, filename)
 
-	out, err := os.Create(fullPath)
-	if err != nil {
+	return printer.WriteFile(fullPath, func(w io.Writer) error {
+		_, err := io.WriteString(w, snippet)
+
 		return err
-	}
-
-	out.WriteString(snippet)
-
-	return nil
+	})
 }

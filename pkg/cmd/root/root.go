@@ -7,6 +7,7 @@ import (
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/algolia/docli/pkg/cmd/generate"
+	"github.com/algolia/docli/pkg/output"
 	"github.com/spf13/cobra"
 )
 
@@ -42,8 +43,10 @@ func NewRootCmd() *cobra.Command {
 		`),
 	}
 	cmd.SetHelpTemplate(helpTemplate())
-	// Capitalize help message to make it consistent
 	cmd.PersistentFlags().BoolP("help", "h", false, "Help for this command")
+	cmd.PersistentFlags().BoolP(output.FlagVerbose, "v", false, "Enable verbose output")
+	cmd.PersistentFlags().BoolP(output.FlagQuiet, "q", false, "Suppress non-error output")
+	cmd.PersistentFlags().Bool(output.FlagDryRun, false, "Preview actions without writing files")
 
 	cmd.AddCommand(generate.NewGenerateCmd())
 
