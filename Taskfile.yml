@@ -14,10 +14,13 @@ tasks:
   test:
     desc: Test code
     cmd: go test ./...
+  bump:
+    desc: Create the next semantic tag based on conventional commits
+    deps: [format, lint, test]
+    cmd: go run ./internal/bump
   release:
     desc: Release new version
     cmd: goreleaser release
   readme:
     desc: Update README.md
     cmd: go run ./internal/docs
-
