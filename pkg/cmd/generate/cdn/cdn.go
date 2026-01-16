@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -111,10 +112,6 @@ func (r *Resolver) ResolveWithContext(
 		resolved.PackageName = resolved.Name
 	}
 
-	if resolved.File != "" && !strings.HasPrefix(resolved.File, "/") {
-		resolved.File = "/" + resolved.File
-	}
-
 	metaData, err := r.fetchNPMMetadata(ctx, resolved.PackageName)
 	if err != nil {
 		return ResolvedPackage{}, err
@@ -135,6 +132,13 @@ func (r *Resolver) ResolveWithContext(
 
 		resolved.File = file
 	}
+
+	sanitizedFile, err := sanitizeFilePath(resolved.File)
+	if err != nil {
+		return ResolvedPackage{}, err
+	}
+
+	resolved.File = sanitizedFile
 
 	integrity, src, err := r.includeLink(
 		ctx,
@@ -234,6 +238,20 @@ func (r *Resolver) defaultFile(
 		packageName,
 		version,
 	)
+}
+
+func sanitizeFilePath(file string) (string, error) {
+	trimmed := strings.TrimSpace(file)
+	if trimmed == "" {
+		return "", fmt.Errorf("file path is empty")
+	}
+
+	cleaned := path.Clean("/" + trimmed)
+	if cleaned == "/" {
+		return "", fmt.Errorf("file path %q resolves to root", file)
+	}
+
+	return cleaned, nil
 }
 
 func (r *Resolver) includeLink(

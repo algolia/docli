@@ -135,7 +135,7 @@ func TestResolverResolveDefaultFile(t *testing.T) {
 	npmPayload, _ := json.Marshal(packageMetadata{
 		DistTags: map[string]string{"latest": "1.2.3"},
 		Versions: map[string]packageVersion{
-			"1.2.3": {JSDelivr: "index.js"},
+			"1.2.3": {JSDelivr: "./index.js"},
 		},
 	})
 
@@ -249,7 +249,7 @@ func TestResolverResolveCustomFile(t *testing.T) {
 
 	pkg := PackageSpec{
 		PackageName: "bar",
-		File:        "/other.js",
+		File:        "./other.js",
 		Name:        "snippet2",
 	}
 
@@ -264,6 +264,57 @@ func TestResolverResolveCustomFile(t *testing.T) {
 
 	if resolved.Integrity != "sha256-HASH_OTHER" {
 		t.Errorf("got Integrity=%q; want %q", resolved.Integrity, "sha256-HASH_OTHER")
+	}
+}
+
+func TestSanitizeFilePath(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{
+			name:  "relative path",
+			input: "./file.js",
+			want:  "/file.js",
+		},
+		{
+			name:  "absolute path",
+			input: "/file.js",
+			want:  "/file.js",
+		},
+		{
+			name:  "bare path",
+			input: "file.js",
+			want:  "/file.js",
+		},
+		{
+			name:    "empty path",
+			input:   "",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := sanitizeFilePath(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got %q", got)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if got != tt.want {
+				t.Fatalf("got %q; want %q", got, tt.want)
+			}
+		})
 	}
 }
 
