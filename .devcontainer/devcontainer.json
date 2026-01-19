@@ -1,0 +1,58 @@
+{
+  "name": "docli",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers-extra/features/mise:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "hverlin.mise-vscode",
+        "golang.go"
+      ]
+    }
+  },
+  "mounts": [
+    {
+      "source": "mise-data-volume",
+      "target": "/mnt/mise-data",
+      "type": "volume"
+    }
+  ],
+  "containerEnv": {
+    "MISE_DATA_DIR": "/mnt/mise-data"
+  },
+  "remoteEnv": {
+    "PATH": "${containerEnv:PATH}:/mnt/mise-data/shims"
+  },
+  "postCreateCommand": "sudo chown -R vscode:vscode /mnt/mise-data",
+  "settings": {
+    "go.toolsEnvVars": {
+      "CGO_ENABLED": "0"
+    },
+    "go.useLanguageServer": true,
+    "go.testEnvVars": {
+      "CGO_ENABLED": "1"
+    },
+    "go.testFlags": [
+      "-v",
+      "-race"
+    ],
+    "go.testTimeout": "30s",
+    "go.coverOnSingleTest": true,
+    "go.coverOnSingleTestFile": true,
+    "go.coverOnTestPackage": true,
+    "go.lintTool": "golangci-lint",
+    "go.lintOnSave": "package",
+    "[go]": {
+      "editor.codeActionsOnSave": {
+        "source.organizeImports": "always"
+      }
+    },
+    "gopls": {
+      "usePlaceholders": false,
+      "staticcheck": true,
+      "formatting.gofumpt": true
+    }
+  }
+}
