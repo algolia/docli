@@ -15,18 +15,16 @@ for more information about activating it for your shell.
 ## Development
 
 > [!NOTE]
-> If you're using [devbox](https://www.jetify.com/devbox) and [direnv](https://direnv.net/),
-> setting up the development environment is automated.
+> If you're using [mise](https://mise.jdx.dev), setting up the development environment is automated.
 
 1. Clone the `github.com/algolia/docli` repository.
 1. Change into the cloned repository: `cd docli`.
 
-   - **With devbox and direnv:** the dependencies are installed automatically.
-   - **With devbox:** run `devbox shell` to install the dependencies and activate the environment.
-   - **Without devbox:** manually install the dependencies listed in `devbox.json`.
+   - **With mise:** run `mise install` to install the dependencies and activate the environment.
+   - **Without mise:** manually install the dependencies listed in `mise.toml`.
 
-1. Build the project, by running `task build`.
-   See the other available tasks by running `task -l`.
+1. Build the project, by running `mise run build`.
+   See the other available tasks by running `mise tasks`.
 
 ## Reference
 

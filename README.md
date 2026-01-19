@@ -15,18 +15,16 @@ for more information about activating it for your shell.
 ## Development
 
 > [!NOTE]
-> If you're using [devbox](https://www.jetify.com/devbox) and [direnv](https://direnv.net/),
-> setting up the development environment is automated.
+> If you're using [mise](https://mise.jdx.dev), setting up the development environment is automated.
 
 1. Clone the `github.com/algolia/docli` repository.
 1. Change into the cloned repository: `cd docli`.
 
-   - **With devbox and direnv:** the dependencies are installed automatically.
-   - **With devbox:** run `devbox shell` to install the dependencies and activate the environment.
-   - **Without devbox:** manually install the dependencies listed in `devbox.json`.
+   - **With mise:** run `mise install` to install the dependencies and activate the environment.
+   - **Without mise:** manually install the dependencies listed in `mise.toml`.
 
-1. Build the project, by running `task build`.
-   See the other available tasks by running `task -l`.
+1. Build the project, by running `mise run build`.
+   See the other available tasks by running `mise tasks`.
 
 ## Reference
 
@@ -91,18 +89,24 @@ the command looks for the template file autocomplete_js.mdx.tmpl.
 
 ```sh
 # Run from the root of algolia/docs-new
-docli gen cdn -o snippets/autocomplete/includes -d cdn.yml -t templates
+docli gen cdn -o include-snippets [-d cdn.yml] [-t templates]
 ```
 
 **Flags**
 
 `-d, --data string`  Data file with package information. (default: `cdn.yml`)
 
+`--dry-run`  Preview actions without writing files
+
 `-h, --help`  Help for this command
 
 `-o, --output string`  Output directory for generated files (default: `out`)
 
+`-q, --quiet`  Suppress non-error output
+
 `-t, --templates string`  Directory with template files for interpolation. (default: `templates`)
+
+`-v, --verbose`  Enable verbose output
 
 
 #### `docli generate clients`
@@ -130,9 +134,15 @@ docli gen clients specs/search.yml -o doc/libraries/sdk/methods
 
 **Flags**
 
+`--dry-run`  Preview actions without writing files
+
 `-h, --help`  Help for this command
 
 `-o, --output string`  Output directory for generated MDX files (default: `out`)
+
+`-q, --quiet`  Suppress non-error output
+
+`-v, --verbose`  Enable verbose output
 
 
 #### `docli generate guides`
@@ -155,9 +165,15 @@ docli gen guides guides.json -o openapi-snippets/guides
 
 **Flags**
 
+`--dry-run`  Preview actions without writing files
+
 `-h, --help`  Help for this command
 
 `-o, --output string`  Output directory for generated MDX files (default: `out`)
+
+`-q, --quiet`  Suppress non-error output
+
+`-v, --verbose`  Enable verbose output
 
 
 #### `docli generate openapi`
@@ -184,9 +200,15 @@ docli gen stubs specs/search.yml -o doc/rest-api
 
 **Flags**
 
+`--dry-run`  Preview actions without writing files
+
 `-h, --help`  Help for this command
 
 `-o, --output string`  Output directory for generated MDX files (default: `out`)
+
+`-q, --quiet`  Suppress non-error output
+
+`-v, --verbose`  Enable verbose output
 
 
 #### `docli generate sla`
@@ -214,9 +236,15 @@ docli gen sla specs/versions-history-with-sla-and-support-policy.json \
 
 **Flags**
 
+`--dry-run`  Preview actions without writing files
+
 `-h, --help`  Help for this command
 
 `-o, --output string`  MDX file for listing the supported versions
+
+`-q, --quiet`  Suppress non-error output
+
+`-v, --verbose`  Enable verbose output
 
 `--versions-snippets-file string`  Snippet file with latest released version numbers
 
@@ -241,8 +269,14 @@ docli gen snippets specs/search-snippets.json -o openapi-snippets/search
 
 **Flags**
 
+`--dry-run`  Preview actions without writing files
+
 `-h, --help`  Help for this command
 
 `-o, --output string`  Output directory for generated MDX files (default: `out`)
+
+`-q, --quiet`  Suppress non-error output
+
+`-v, --verbose`  Enable verbose output
 
 

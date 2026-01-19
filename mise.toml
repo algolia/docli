@@ -2,4 +2,16 @@
 go = "1.25"
 golangci-lint = "2.8.0"
 goreleaser = "2.13.3"
-task = "3.46.4"
+
+[tasks]
+build = "go build"
+lint = "golangci-lint run"
+format = "golangci-lint fmt"
+test = "go test ./..."
+release = "goreleaser release"
+readme = "go run ./internal/docs"
+
+[tasks.bump]
+description = "Create next semantic tag"
+depends = ["format", "lint", "test"]
+run = "go run ./internal/bump"
