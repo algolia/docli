@@ -9,7 +9,11 @@ and download the latest release that's suitable for your computer.
 
 Then, unpack the `tar.gz` file, for example, with `tar xvf docli_*tar.gz`.
 
-Optional: if you're using command completion, run `./docli completion --help`
+> [!TIP]
+> Before you can use the CLI on your Mac,
+> you might need to run `xattr -d com.apple.quarantine docli`.
+
+To enable command completion, run `./docli completion --help`
 for more information about activating it for your shell.
 
 ## Development
