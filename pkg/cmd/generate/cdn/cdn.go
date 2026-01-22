@@ -20,7 +20,7 @@ import (
 	"github.com/algolia/docli/pkg/output"
 	"github.com/algolia/docli/pkg/validate"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // Options represents the options and flags for this command.
