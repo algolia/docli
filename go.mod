@@ -4,11 +4,11 @@ go 1.25
 
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
-	github.com/pb33f/libopenapi v0.33.0
+	github.com/pb33f/libopenapi v0.33.7
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	go.yaml.in/yaml/v4 v4.0.0-rc.4
-	golang.org/x/mod v0.32.0
+	golang.org/x/mod v0.33.0
 )
 
 require (
