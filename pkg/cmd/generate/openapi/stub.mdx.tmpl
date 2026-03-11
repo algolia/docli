@@ -1,6 +1,7 @@
 ---
 title: {{ .Title }}
 openapi: {{ .InputFilename }} {{ .Verb }} {{ .APIPath }}
+public: true
 ---
 {{- if .RequiresAdmin }}
 
