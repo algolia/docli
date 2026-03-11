@@ -1,15 +1,31 @@
 [tools]
-go = "1.25"
+go = "1.26"
 golangci-lint = "2.8.0"
 goreleaser = "2.13.3"
 
-[tasks]
-build = "go build"
-lint = "golangci-lint run"
-format = "golangci-lint fmt"
-test = "go test ./..."
-release = "goreleaser release"
-readme = "go run ./internal/docs"
+[tasks.build]
+description = "Build the project"
+run = "go build"
+
+[tasks.lint]
+description = "Lint the code with golangci-lint"
+run = "golangci-lint run"
+
+[tasks.format]
+description = "Format the code with golangci-lint"
+run = "golangci-lint fmt"
+
+[tasks.test]
+description = "Run tests"
+run = "go test ./..."
+
+[tasks.release]
+description = "Release a new version"
+run = "goreleaser release"
+
+[tasks.readme]
+description = "Update the README"
+run = "go run ./internal/docs"
 
 [tasks.bump]
 description = "Create next semantic tag"
