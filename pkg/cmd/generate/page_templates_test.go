@@ -28,8 +28,6 @@ func TestPageTemplatesHavePublicFrontmatter(t *testing.T) {
 	}
 
 	for _, relativePath := range pageTemplates {
-		relativePath := relativePath
-
 		t.Run(relativePath, func(t *testing.T) {
 			t.Parallel()
 
