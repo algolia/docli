@@ -101,30 +101,27 @@ func runCommand(opts *Options, printer *output.Printer) error {
 
 // generateMarkdownSnippet generates a CodeGroup block.
 func generateMarkdownSnippet(snippet map[string]string) string {
-	result := "<CodeGroup>\n"
+	var b strings.Builder
+	b.WriteString("<CodeGroup>\n")
+
 	languages := sortLanguages(snippet)
 
+	replacer := strings.NewReplacer(
+		"<YOUR_INDEX_NAME>", "INDEX_NAME",
+		"cts_e2e_deleteObjects_javascript", "INDEX_NAME",
+		"<YOUR_QUERY>", "SEARCH_QUERY",
+		"uniqueID", "OBJECT_ID",
+	)
+
 	for _, lang := range languages {
-		result += fmt.Sprintf(
-			"\n```%s %s\n",
-			dictionary.NormalizeLang(lang),
-			utils.GetLanguageName(lang),
-		)
-		replaced := strings.ReplaceAll(snippet[lang], "<YOUR_INDEX_NAME>", "INDEX_NAME")
-		replaced = strings.ReplaceAll(
-			replaced,
-			"cts_e2e_deleteObjects_javascript",
-			"INDEX_NAME",
-		)
-		replaced = strings.ReplaceAll(replaced, "<YOUR_QUERY>", "SEARCH_QUERY")
-		replaced = strings.ReplaceAll(replaced, "uniqueID", "OBJECT_ID")
-		result += replaced
-		result += "\n```\n"
+		fmt.Fprintf(&b, "\n```%s %s\n", dictionary.NormalizeLang(lang), utils.GetLanguageName(lang))
+		b.WriteString(replacer.Replace(snippet[lang]))
+		b.WriteString("\n```\n")
 	}
 
-	result += "\n</CodeGroup>"
+	b.WriteString("\n</CodeGroup>")
 
-	return result
+	return b.String()
 }
 
 // sortLanguages returns a list of sorted languages.
