@@ -113,12 +113,17 @@ func generateMarkdownSnippet(snippet map[string]string) string {
 			dictionary.NormalizeLang(lang),
 			utils.GetLanguageName(lang),
 		)
-		replaced := strings.ReplaceAll(snippet[lang], "<YOUR_INDEX_NAME>", "ALGOLIA_INDEX_NAME")
+		replaced := strings.ReplaceAll(snippet[lang], "<YOUR_INDEX_NAME>", "INDEX_NAME")
 		replaced = strings.ReplaceAll(
 			replaced,
 			"cts_e2e_deleteObjects_javascript",
-			"ALGOLIA_INDEX_NAME",
+			"INDEX_NAME",
 		)
+		replaced = strings.ReplaceAll(replaced, "YOUR_INDEX_NAME", "INDEX_NAME")
+		replaced = strings.ReplaceAll(replaced, "YourApplicationID", "ALGOLIA_APPLICATION_ID")
+		replaced = strings.ReplaceAll(replaced, "YourAdminAPIKey", "ALGOLIA_API_KEY")
+		replaced = strings.ReplaceAll(replaced, "<YOUR_SEARCH_QUERY>", "SEARCH_QUERY")
+		replaced = strings.ReplaceAll(replaced, "YOUR_TASK_ID", "TASK_ID")
 		result += replaced
 		result += "\n```\n"
 	}

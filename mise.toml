@@ -5,7 +5,8 @@ goreleaser = "2.14.3"
 
 [tasks.build]
 description = "Build the project"
-run = "go build"
+# If I run inside worktrees
+run = "go build -buildvcs=false"
 
 [tasks.lint]
 description = "Lint the code with golangci-lint"
