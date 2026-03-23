@@ -1,6 +1,6 @@
 ---
 title: {{ .Title }}
-description: {{ .ShortDescription }}
+description: {{ frontmatterString .ShortDescription }}
 openapi: {{ .InputFilename }} {{ .Verb }} {{ .APIPath }}
 public: true
 ---

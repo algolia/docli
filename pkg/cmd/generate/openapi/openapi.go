@@ -128,7 +128,9 @@ func runCommand(opts *Options, printer *output.Printer) error {
 		return fmt.Errorf("build overview data for %s: %w", opts.InputFileName, err)
 	}
 
-	ovTmpl := template.Must(template.New("overview").Parse(overviewTemplate))
+	ovTmpl := template.Must(template.New("overview").Funcs(template.FuncMap{
+		"frontmatterString": utils.QuoteFrontmatterString,
+	}).Parse(overviewTemplate))
 
 	err = writeOverviewData(overviewData, ovTmpl, printer)
 	if err != nil {
@@ -142,7 +144,9 @@ func runCommand(opts *Options, printer *output.Printer) error {
 
 	printer.Verbosef("Spec %s has %d operations.\n", opts.InputFileName, len(opData))
 
-	tmpl := template.Must(template.New("stub").Parse(stubTemplate))
+	tmpl := template.Must(template.New("stub").Funcs(template.FuncMap{
+		"frontmatterString": utils.QuoteFrontmatterString,
+	}).Parse(stubTemplate))
 
 	err = writeAPIData(opData, tmpl, printer)
 	if err != nil {
@@ -158,12 +162,18 @@ func getAPIOverviewData(
 	opts *Options,
 ) (OverviewData, error) {
 	result := OverviewData{
-		OutputFilename:   fmt.Sprintf("%s.mdx", opts.APIName),
-		OutputPath:       opts.OutputDirectory,
-		Title:            doc.Model.Info.Title,
-		ShortDescription: doc.Model.Info.Summary,
-		Description:      doc.Model.Info.Description,
+		OutputFilename: fmt.Sprintf("%s.mdx", opts.APIName),
+		OutputPath:     opts.OutputDirectory,
+		Title:          doc.Model.Info.Title,
+		Description:    strings.TrimSpace(doc.Model.Info.Description),
 	}
+
+	short := strings.TrimSpace(doc.Model.Info.Summary)
+	if short == "" {
+		short, result.Description = utils.SplitDescription(doc.Model.Info.Description)
+	}
+
+	result.ShortDescription = utils.StripMarkdown(short)
 
 	return result, nil
 }
@@ -189,40 +199,9 @@ func getAPIData(
 		pathItem := pathPairs.Value()
 
 		for opPairs := pathItem.GetOperations().First(); opPairs != nil; opPairs = opPairs.Next() {
-			op := opPairs.Value()
-
-			short, long := utils.SplitDescription(op.Description)
-
-			acl, err := utils.GetACL(op)
+			data, err := buildOperationData(opPairs.Key(), pathName, opPairs.Value(), opts, prefix)
 			if err != nil {
-				return nil, fmt.Errorf("get ACL for %s %s: %w", opPairs.Key(), pathName, err)
-			}
-
-			data := OperationData{
-				ACL:              utils.AclToString(acl),
-				APIPath:          pathName,
-				Description:      long,
-				InputFilename:    normalizePath(opts.InputFileName),
-				OutputFilename:   utils.GetOutputFilename(op),
-				OutputPath:       prefix,
-				RequiresAdmin:    false,
-				ShortDescription: short,
-				Title:            strings.TrimSpace(op.Summary),
-				Verb:             opPairs.Key(),
-			}
-
-			if data.ACL == "`admin`" {
-				data.RequiresAdmin = true
-			}
-
-			if op.ExternalDocs != nil {
-				desc := strings.TrimSpace(op.ExternalDocs.Description)
-				data.ExternalDocs.Description = strings.TrimSuffix(desc, ".")
-				data.ExternalDocs.URL = op.ExternalDocs.URL
-			}
-
-			if data.ExternalDocs.Description != "" && data.ExternalDocs.URL != "" {
-				data.SeeAlso = true
+				return nil, err
 			}
 
 			result = append(result, data)
@@ -231,6 +210,47 @@ func getAPIData(
 	}
 
 	return result, nil
+}
+
+func buildOperationData(
+	verb, pathName string,
+	op *v3.Operation,
+	opts *Options,
+	prefix string,
+) (OperationData, error) {
+	short, long := utils.SplitDescription(op.Description)
+
+	acl, err := utils.GetACL(op)
+	if err != nil {
+		return OperationData{}, fmt.Errorf("get ACL for %s %s: %w", verb, pathName, err)
+	}
+
+	data := OperationData{
+		ACL:              utils.AclToString(acl),
+		APIPath:          pathName,
+		Description:      long,
+		InputFilename:    normalizePath(opts.InputFileName),
+		OutputFilename:   utils.GetOutputFilename(op),
+		OutputPath:       prefix,
+		RequiresAdmin:    false,
+		ShortDescription: utils.StripMarkdown(short),
+		Title:            strings.TrimSpace(op.Summary),
+		Verb:             verb,
+	}
+
+	if data.ACL == "`admin`" {
+		data.RequiresAdmin = true
+	}
+
+	if op.ExternalDocs != nil {
+		desc := strings.TrimSpace(op.ExternalDocs.Description)
+		data.ExternalDocs.Description = strings.TrimSuffix(desc, ".")
+		data.ExternalDocs.URL = op.ExternalDocs.URL
+	}
+
+	data.SeeAlso = data.ExternalDocs.Description != "" && data.ExternalDocs.URL != ""
+
+	return data, nil
 }
 
 // writeOverviewData writes the API's overview data into an MDX file.

@@ -13,6 +13,39 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+var (
+	blankLinePattern           = regexp.MustCompile(`\n\s*\n+`)
+	htmlTagPattern             = regexp.MustCompile(`</?[^>]+>`)
+	markdownEscapePattern      = regexp.MustCompile(`\\([\\` + "`" + `*_{}\[\]()#+\-.!])`)
+	markdownImagePattern       = regexp.MustCompile(`!\[([^\]]*)\]\([^\)]+\)`)
+	markdownLinkPattern        = regexp.MustCompile(`\[([^\]]+)\]\([^\)]+\)`)
+	markdownReferencePattern   = regexp.MustCompile(`\[([^\]]+)\]\[[^\]]*\]`)
+	markdownShortcutRefPattern = regexp.MustCompile(`\[([^\]]+)\]\[\]`)
+	markdownAutoLinkPattern    = regexp.MustCompile(`<((?:https?|mailto):[^>]+)>`)
+	markdownCodePattern        = regexp.MustCompile("`([^`]*)`")
+	markdownStrongAsterisk     = regexp.MustCompile(`\*\*([^*\n]+)\*\*`)
+	markdownStrongUnderscore   = regexp.MustCompile(`__([^_\n]+)__`)
+	markdownEmAsterisk         = regexp.MustCompile(`\*([^*\n]+)\*`)
+	markdownEmUnderscore       = regexp.MustCompile(`_([^_\n]+)_`)
+	whitespacePattern          = regexp.MustCompile(`\s+`)
+)
+
+var sentenceAbbreviations = map[string]struct{}{
+	"dr.":   {},
+	"e.g.":  {},
+	"etc.":  {},
+	"i.e.":  {},
+	"jr.":   {},
+	"mr.":   {},
+	"mrs.":  {},
+	"ms.":   {},
+	"prof.": {},
+	"sr.":   {},
+	"u.k.":  {},
+	"u.s.":  {},
+	"vs.":   {},
+}
+
 // GetAPIName returns the name of the YAML file without extension as API name.
 func GetAPIName(path string) string {
 	// Have to make an exception for the Analytics API
@@ -125,31 +158,177 @@ func GetLanguageName(lang string) string {
 
 // SplitDescription splits a description into the first sentence and the rest.
 func SplitDescription(p string) (string, string) {
-	p = strings.TrimSpace(p)
-
-	// Split by empty line
-	parts := strings.SplitN(p, "\n\n", 2)
-	if len(parts) > 1 && strings.TrimSpace(parts[0]) != "" {
-		short := strings.TrimSpace(parts[0])
-		long := strings.TrimSpace(parts[1])
-
-		// No extra newline characters in between
-		short = strings.ReplaceAll(short, "\n", " ")
-
-		return short, long
+	p = normalizeDescriptionText(p)
+	if p == "" {
+		return "", ""
 	}
 
-	// No empty line: find first period
-	if idx := strings.Index(p, "."); idx != -1 {
-		short := strings.TrimSpace(p[:idx+1])
-		long := strings.TrimSpace(p[idx+1:])
+	if loc := blankLinePattern.FindStringIndex(p); loc != nil {
+		short := collapseInlineWhitespace(p[:loc[0]])
 
-		// No extra newline characters in between
-		short = strings.ReplaceAll(short, "\n", " ")
+		long := strings.TrimSpace(p[loc[1]:])
+
+		if short != "" {
+			return short, long
+		}
+	}
+
+	if idx := firstSentenceBoundary(p); idx != -1 {
+		short := collapseInlineWhitespace(p[:idx])
+		long := strings.TrimSpace(p[idx:])
 
 		return short, long
 	}
 
 	// No period: entire paragraph is the shortDescription
-	return p, ""
+	return collapseInlineWhitespace(p), ""
+}
+
+// StripMarkdown removes common inline Markdown formatting and collapses whitespace.
+func StripMarkdown(p string) string {
+	p = normalizeDescriptionText(p)
+	if p == "" {
+		return ""
+	}
+
+	stripped := markdownImagePattern.ReplaceAllString(p, `$1`)
+	stripped = markdownLinkPattern.ReplaceAllString(stripped, `$1`)
+	stripped = markdownReferencePattern.ReplaceAllString(stripped, `$1`)
+	stripped = markdownShortcutRefPattern.ReplaceAllString(stripped, `$1`)
+	stripped = markdownCodePattern.ReplaceAllString(stripped, `$1`)
+	stripped = markdownAutoLinkPattern.ReplaceAllString(stripped, `$1`)
+	stripped = htmlTagPattern.ReplaceAllString(stripped, "")
+
+	for {
+		next := stripped
+		next = markdownStrongAsterisk.ReplaceAllString(next, `$1`)
+		next = markdownStrongUnderscore.ReplaceAllString(next, `$1`)
+		next = markdownEmAsterisk.ReplaceAllString(next, `$1`)
+		next = markdownEmUnderscore.ReplaceAllString(next, `$1`)
+
+		if next == stripped {
+			break
+		}
+
+		stripped = next
+	}
+
+	stripped = markdownEscapePattern.ReplaceAllString(stripped, `$1`)
+
+	return collapseInlineWhitespace(stripped)
+}
+
+// QuoteFrontmatterString returns a double-quoted YAML string scalar.
+func QuoteFrontmatterString(p string) string {
+	escaped := strings.ReplaceAll(p, `\`, `\\`)
+	escaped = strings.ReplaceAll(escaped, `"`, `\"`)
+
+	return `"` + escaped + `"`
+}
+
+func normalizeDescriptionText(p string) string {
+	p = strings.ReplaceAll(p, "\r\n", "\n")
+	p = strings.ReplaceAll(p, "\r", "\n")
+
+	return strings.TrimSpace(p)
+}
+
+func collapseInlineWhitespace(p string) string {
+	return strings.TrimSpace(whitespacePattern.ReplaceAllString(p, " "))
+}
+
+func firstSentenceBoundary(p string) int {
+	for i := 0; i < len(p); i++ {
+		if boundary, ok := sentenceBoundaryAt(p, i); ok {
+			return boundary
+		}
+	}
+
+	return -1
+}
+
+func sentenceBoundaryAt(p string, idx int) (int, bool) {
+	if !isSentencePunctuation(p[idx]) {
+		return 0, false
+	}
+
+	if p[idx] == '.' && (isDecimalPoint(p, idx) || isAbbreviationBoundary(p, idx)) {
+		return 0, false
+	}
+
+	end := sentenceEndIndex(p, idx)
+	if end == len(p) {
+		return end, true
+	}
+
+	if !unicode.IsSpace(rune(p[end])) {
+		return 0, false
+	}
+
+	next := skipSentenceWhitespace(p, end)
+	if next == len(p) {
+		return end, true
+	}
+
+	if !isSentenceStart(rune(p[next])) {
+		return 0, false
+	}
+
+	return end, true
+}
+
+func sentenceEndIndex(p string, idx int) int {
+	end := idx + 1
+	for end < len(p) && isSentenceCloser(p[end]) {
+		end++
+	}
+
+	return end
+}
+
+func skipSentenceWhitespace(p string, idx int) int {
+	for idx < len(p) && unicode.IsSpace(rune(p[idx])) {
+		idx++
+	}
+
+	return idx
+}
+
+func isSentencePunctuation(b byte) bool {
+	return b == '.' || b == '!' || b == '?'
+}
+
+func isDecimalPoint(p string, idx int) bool {
+	if idx == 0 || idx == len(p)-1 {
+		return false
+	}
+
+	return unicode.IsDigit(rune(p[idx-1])) && unicode.IsDigit(rune(p[idx+1]))
+}
+
+func isAbbreviationBoundary(p string, idx int) bool {
+	start := idx
+	for start > 0 {
+		prev := rune(p[start-1])
+		if unicode.IsLetter(prev) || p[start-1] == '.' {
+			start--
+
+			continue
+		}
+
+		break
+	}
+
+	token := strings.ToLower(p[start : idx+1])
+	_, ok := sentenceAbbreviations[token]
+
+	return ok
+}
+
+func isSentenceCloser(b byte) bool {
+	return b == '"' || b == '\'' || b == ')' || b == ']' || b == '}'
+}
+
+func isSentenceStart(r rune) bool {
+	return unicode.IsUpper(r) || unicode.IsDigit(r) || r == '[' || r == '(' || r == '<' || r == '`'
 }

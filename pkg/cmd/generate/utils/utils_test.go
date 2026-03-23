@@ -264,6 +264,81 @@ func TestOutputFilename(t *testing.T) {
 	}
 }
 
+func TestSplitDescription(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantShort string
+		wantLong  string
+	}{
+		{
+			name:      "Split paragraphs with whitespace",
+			input:     "First paragraph.\n \nSecond paragraph.",
+			wantShort: "First paragraph.",
+			wantLong:  "Second paragraph.",
+		},
+		{
+			name:      "Split CRLF paragraphs",
+			input:     "First paragraph.\r\n\r\nSecond paragraph.",
+			wantShort: "First paragraph.",
+			wantLong:  "Second paragraph.",
+		},
+		{
+			name:      "Skip decimal point",
+			input:     "Version 3.14 is supported. Use it carefully.",
+			wantShort: "Version 3.14 is supported.",
+			wantLong:  "Use it carefully.",
+		},
+		{
+			name:      "Skip abbreviation",
+			input:     "Use e.g. filters. They narrow results.",
+			wantShort: "Use e.g. filters.",
+			wantLong:  "They narrow results.",
+		},
+		{
+			name:      "Keep entire text when no safe sentence boundary",
+			input:     "Use the API. then continue",
+			wantShort: "Use the API. then continue",
+			wantLong:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			gotShort, gotLong := SplitDescription(tt.input)
+			if gotShort != tt.wantShort || gotLong != tt.wantLong {
+				t.Fatalf(
+					"SplitDescription() = (%q, %q), want (%q, %q)",
+					gotShort,
+					gotLong,
+					tt.wantShort,
+					tt.wantLong,
+				)
+			}
+		})
+	}
+}
+
+func TestStripMarkdown(t *testing.T) {
+	input := "Use **bold** [links](https://algolia.com), _emphasis_, `code`, <em>HTML</em>, and <https://algolia.com>."
+	want := "Use bold links, emphasis, code, HTML, and https://algolia.com."
+
+	if got := StripMarkdown(input); got != want {
+		t.Fatalf("StripMarkdown() = %q, want %q", got, want)
+	}
+}
+
+func TestQuoteFrontmatterString(t *testing.T) {
+	input := `A "quoted" path C:\tmp: #tag`
+	want := `"A \"quoted\" path C:\\tmp: #tag"`
+
+	if got := QuoteFrontmatterString(input); got != want {
+		t.Fatalf("QuoteFrontmatterString() = %q, want %q", got, want)
+	}
+}
+
 func mockOp(extensions *yaml.Node) v3.Operation {
 	op := v3.Operation{}
 	op.Extensions = orderedmap.New[string, *yaml.Node]()

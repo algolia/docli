@@ -1,8 +1,10 @@
 ---
 title: {{ .Title }}
 sidebarTitle: Overview
-description: {{ .ShortDescription }}.
+description: {{ frontmatterString .ShortDescription }}
 public: true
 ---
+{{- if .Description }}
 
 {{ .Description }}
+{{- end }}

@@ -140,7 +140,8 @@ func runCommand(opts *Options, printer *output.Printer) error {
 	printer.Verbosef("Spec %s has %d operations.\n", opts.InputFilename, len(opData))
 
 	tmpl := template.Must(template.New("method").Funcs(template.FuncMap{
-		"trim": strings.TrimSpace,
+		"frontmatterString": utils.QuoteFrontmatterString,
+		"trim":              strings.TrimSpace,
 	}).Parse(methodTemplate))
 
 	if err := writeAPIData(opData, tmpl, printer); err != nil {
@@ -181,6 +182,7 @@ func getAPIData(
 			}
 
 			short, long := utils.SplitDescription(op.Description)
+			short = utils.StripMarkdown(short)
 
 			data := OperationData{
 				ACL:              utils.AclToString(acl),
