@@ -1,8 +1,13 @@
 ---
 title: {{ .Title }}
+description: {{ .ShortDescription }}
 openapi: {{ .InputFilename }} {{ .Verb }} {{ .APIPath }}
 public: true
 ---
+{{- if .Description }}
+
+{{ .Description }}
+{{- end }}
 {{- if .RequiresAdmin }}
 
 **Requires Admin API key**

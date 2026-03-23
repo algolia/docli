@@ -42,16 +42,18 @@ type OverviewData struct {
 
 // OperationData holds data relevant to a single API operation stub file.
 type OperationData struct {
-	ACL            string
-	APIPath        string
-	ExternalDocs   ExternalDocs
-	InputFilename  string
-	OutputFilename string
-	OutputPath     string
-	RequiresAdmin  bool
-	SeeAlso        bool
-	Title          string
-	Verb           string
+	ACL              string
+	APIPath          string
+	Description      string
+	ExternalDocs     ExternalDocs
+	InputFilename    string
+	OutputFilename   string
+	OutputPath       string
+	RequiresAdmin    bool
+	SeeAlso          bool
+	ShortDescription string
+	Title            string
+	Verb             string
 }
 
 //go:embed overview.mdx.tmpl
@@ -189,20 +191,24 @@ func getAPIData(
 		for opPairs := pathItem.GetOperations().First(); opPairs != nil; opPairs = opPairs.Next() {
 			op := opPairs.Value()
 
+			short, long := utils.SplitDescription(op.Description)
+
 			acl, err := utils.GetACL(op)
 			if err != nil {
 				return nil, fmt.Errorf("get ACL for %s %s: %w", opPairs.Key(), pathName, err)
 			}
 
 			data := OperationData{
-				ACL:            utils.AclToString(acl),
-				APIPath:        pathName,
-				InputFilename:  normalizePath(opts.InputFileName),
-				OutputFilename: utils.GetOutputFilename(op),
-				OutputPath:     prefix,
-				RequiresAdmin:  false,
-				Title:          strings.TrimSpace(op.Summary),
-				Verb:           opPairs.Key(),
+				ACL:              utils.AclToString(acl),
+				APIPath:          pathName,
+				Description:      long,
+				InputFilename:    normalizePath(opts.InputFileName),
+				OutputFilename:   utils.GetOutputFilename(op),
+				OutputPath:       prefix,
+				RequiresAdmin:    false,
+				ShortDescription: short,
+				Title:            strings.TrimSpace(op.Summary),
+				Verb:             opPairs.Key(),
 			}
 
 			if data.ACL == "`admin`" {
