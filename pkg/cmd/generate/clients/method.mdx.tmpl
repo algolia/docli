@@ -1,6 +1,6 @@
 ---
 title: {{ .Summary }}
-description: {{ .ShortDescription }}
+description: {{ frontmatterString .ShortDescription }}
 public: true
 ---
 {{- if .Deprecated }}
