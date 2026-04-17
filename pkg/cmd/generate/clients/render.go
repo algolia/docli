@@ -78,6 +78,10 @@ func sortParameters(params []Parameter) []Parameter {
 	}
 
 	sort.SliceStable(params, func(i, j int) bool {
+		if params[i].Required != params[j].Required {
+			return params[i].Required
+		}
+
 		return strings.ToLower(params[i].Name) < strings.ToLower(params[j].Name)
 	})
 

@@ -1438,7 +1438,7 @@ paths:
 	})
 }
 
-func TestGetAPIDataSortsParametersAndReturnsAlphabetically(t *testing.T) {
+func TestGetAPIDataSortsParametersRequiredFirstThenAlphabetically(t *testing.T) {
 	t.Parallel()
 
 	spec := []byte(`openapi: 3.0.0
@@ -1471,6 +1471,8 @@ paths:
                     beta:
                       type: string
                       description: Beta child.
+                  required:
+                    - zulu
                 mixed:
                   oneOf:
                     - type: object
@@ -1482,8 +1484,13 @@ paths:
                         alpha:
                           type: string
                           description: Alpha variant child.
+                      required:
+                        - zulu
                     - type: string
                       description: String variant.
+              required:
+                - mixed
+                - zeta
       responses:
         '200':
           description: OK
@@ -1517,9 +1524,9 @@ paths:
 	if got, want := parameterNames(
 		data[0].Params,
 	), []string{
-		"alpha",
 		"mixed",
 		"zeta",
+		"alpha",
 	}; !equalStrings(
 		got,
 		want,
@@ -1531,8 +1538,8 @@ paths:
 	if got, want := parameterNames(
 		alpha.Children,
 	), []string{
-		"beta",
 		"zulu",
+		"beta",
 	}; !equalStrings(
 		got,
 		want,
@@ -1549,8 +1556,8 @@ paths:
 	if got, want := parameterNames(
 		objectVariant.Children,
 	), []string{
-		"alpha",
 		"zulu",
+		"alpha",
 	}; !equalStrings(
 		got,
 		want,
