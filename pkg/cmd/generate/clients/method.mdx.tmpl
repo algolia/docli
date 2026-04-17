@@ -6,6 +6,7 @@ public: true
 {{- if .Deprecated }}
 
 <Warning>This method is **deprecated.**</Warning>
+
 {{- end }}
 {{ if .RequiresAdmin }}
 **Requires Admin API key**
@@ -15,15 +16,30 @@ public: true
 
 {{ .Description }}
 {{ if .CodeSamples }}
+
 ## Usage
 
 <CodeGroup>
+
 {{ range .CodeSamples }}
 ```{{ .Lang }} {{ .Label }}
 {{ trim .Source }}
 ```
 {{ end }}
+
 </CodeGroup>
+{{- end }}
+{{- if .Params }}
+
+## Parameters
+
+{{ renderParamFields .Params }}
+{{- end }}
+{{ if .Returns }}
+
+## Returns
+
+{{ renderResponseFields .Returns }}
 {{- end }}
 
 <Card
@@ -33,8 +49,9 @@ public: true
   arrow="true"
   href="/doc/rest-api/{{ .APIName }}/{{ .OperationIDKebab }}"
 >
-For more details about input parameters
-and response fields.
+
+For HTTP endpoint details and response fields.
+
 </Card>
 {{- if .SeeAlso }}
 
