@@ -14,11 +14,11 @@ func buildMethodTemplate(t *testing.T) *template.Template {
 	t.Helper()
 
 	return template.Must(template.New("method").Funcs(template.FuncMap{
-		"frontmatterString":    utils.QuoteFrontmatterString,
-		"mintFieldType":        mintFieldType,
-		"renderParamFields":    renderParamFields,
-		"renderResponseFields": renderResponseFields,
-		"trim":                 strings.TrimSpace,
+		"frontmatterString": utils.QuoteFrontmatterString,
+		"mintFieldType":     mintFieldType,
+		"renderParamFields": renderParamFields,
+		"renderResponses":   renderResponses,
+		"trim":              strings.TrimSpace,
 	}).Parse(methodTemplate))
 }
 
@@ -90,6 +90,10 @@ paths:
 		`description: "Use the API key endpoint with filters:active."`,
 		"This body keeps [markdown](https://algolia.com/doc) and **details** intact.",
 		"**Required ACL:** `search`",
+		"For details about the underlying HTTP method.",
+	})
+	assertRenderedNotContains(t, rendered.String(), []string{
+		"For HTTP endpoint details and response fields.",
 	})
 }
 
@@ -216,7 +220,7 @@ components:
 	})
 }
 
-func TestGetAPIDataPrefersBodyFieldWhenNamesCollide(t *testing.T) {
+func TestGetAPIDataKeepsBodyAndPathFieldWhenNamesCollide(t *testing.T) {
 	t.Parallel()
 
 	spec := []byte(`openapi: 3.0.0
@@ -282,27 +286,107 @@ components:
 		t.Fatalf("getAPIData() len = %d, want 1", len(data))
 	}
 
-	paramsMap := map[string]Parameter{}
-	for _, param := range data[0].Params {
-		paramsMap[param.Name] = param
-	}
-
-	assertParameter(t, paramsMap, Parameter{
+	assertParameter(t, paramsByNameAndIn(data[0].Params), Parameter{
 		Name:        "indexName",
+		In:          "path",
 		Description: "Index to update.",
 		Required:    true,
 		Type:        "string",
 	})
 
-	assertParameter(t, paramsMap, Parameter{
+	assertParameter(t, paramsByNameAndIn(data[0].Params), Parameter{
 		Name:        "objectID",
+		In:          "path",
+		Description: "Path object ID.",
+		Required:    true,
+		Type:        "string",
+	})
+
+	assertParameter(t, paramsByNameAndIn(data[0].Params), Parameter{
+		Name:        "objectID",
+		In:          "body",
 		Description: "Body object ID.",
 		Required:    true,
 		Type:        "string",
 	})
 
-	if len(data[0].Params) != 3 {
-		t.Fatalf("parameter count = %d, want 3", len(data[0].Params))
+	if len(data[0].Params) != 4 {
+		t.Fatalf("parameter count = %d, want 4", len(data[0].Params))
+	}
+}
+
+func TestGetAPIDataKeepsQueryAndHeaderParamsWhenNamesCollide(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/colliding:
+    get:
+      operationId: getColliding
+      summary: Get colliding
+      description: Get colliding.
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Query ID.
+          schema:
+            type: string
+        - name: id
+          in: header
+          required: true
+          description: Header ID.
+          schema:
+            type: integer
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	data, err := getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFilename:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err != nil {
+		t.Fatalf("getAPIData() error = %v", err)
+	}
+
+	params := paramsByNameAndIn(data[0].Params)
+	assertParameter(t, params, Parameter{
+		Name:        "id",
+		In:          "query",
+		Description: "Query ID.",
+		Required:    true,
+		Type:        "string",
+	})
+	assertParameter(t, params, Parameter{
+		Name:        "id",
+		In:          "header",
+		Description: "Header ID.",
+		Required:    true,
+		Type:        "integer",
+	})
+
+	tmpl := buildMethodTemplate(t)
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data[0]); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertRenderedContains(t, rendered.String(), []string{
+		"Query ID.",
+		"Header ID.",
+	})
+
+	if got := strings.Count(rendered.String(), `<ParamField path="id"`); got != 2 {
+		t.Fatalf("rendered id param count = %d, want 2\n%s", got, rendered.String())
 	}
 }
 
@@ -605,6 +689,227 @@ components:
 	})
 }
 
+func TestGetAPIDataFlattensTopLevelAllOfRequestBody(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/top-level-allof:
+    post:
+      operationId: createTopLevelAllOf
+      summary: Create top level allOf
+      description: Create top level allOf.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/basePayload'
+                - type: object
+                  properties:
+                    page:
+                      type: integer
+                      description: Page number.
+                  required:
+                    - page
+components:
+  schemas:
+    basePayload:
+      allOf:
+        - type: object
+          properties:
+            query:
+              type: string
+              description: Query text.
+          required:
+            - query
+        - type: object
+          properties:
+            filters:
+              type: string
+              description: Filter text.
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	data, err := getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFilename:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err != nil {
+		t.Fatalf("getAPIData() error = %v", err)
+	}
+
+	if len(data) != 1 {
+		t.Fatalf("getAPIData() len = %d, want 1", len(data))
+	}
+
+	params := paramsByName(data[0].Params)
+	assertParameter(t, params, Parameter{
+		Name:        "query",
+		Description: "Query text.",
+		Required:    true,
+		Type:        "string",
+	})
+	assertParameter(t, params, Parameter{
+		Name:        "filters",
+		Description: "Filter text.",
+		Required:    false,
+		Type:        "string",
+	})
+	assertParameter(t, params, Parameter{
+		Name:        "page",
+		Description: "Page number.",
+		Required:    true,
+		Type:        "integer",
+	})
+
+	if got := len(data[0].Params); got != 3 {
+		t.Fatalf("params len = %d, want 3", got)
+	}
+
+	tmpl := buildMethodTemplate(t)
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data[0]); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertRenderedContains(t, rendered.String(), []string{
+		"## Parameters",
+		"<ParamField path=\"query\" type=\"string\" required>",
+		"<ParamField path=\"filters\" type=\"string\">",
+		"<ParamField path=\"page\" type=\"number\" required>",
+	})
+	assertRenderedNotContains(t, rendered.String(), []string{
+		"<ParamField path=\"requestBody\"",
+	})
+}
+
+func TestGetAPIDataKeepsVariantsAndAllowedValuesWhenAllOfMergesDuplicateFields(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/merged-allof:
+    post:
+      operationId: createMergedAllOf
+      summary: Create merged allOf
+      description: Create merged allOf.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  properties:
+                    payload:
+                      oneOf:
+                        - type: string
+                          description: String payload.
+                        - type: object
+                          description: Object payload.
+                          properties:
+                            query:
+                              type: string
+                              description: Query text.
+                          required:
+                            - query
+                    status:
+                      type: string
+                      enum:
+                        - one
+                        - two
+                        - three
+                        - four
+                        - five
+                        - six
+                        - seven
+                        - eight
+                        - nine
+                - type: object
+                  properties:
+                    payload:
+                      description: Payload to send.
+                      oneOf:
+                        - type: string
+                          description: String payload.
+                        - type: object
+                          description: Object payload.
+                          properties:
+                            query:
+                              type: string
+                              description: Query text.
+                          required:
+                            - query
+                    status:
+                      description: Status value.
+                  required:
+                    - payload
+                    - status
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	data, err := getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFilename:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err != nil {
+		t.Fatalf("getAPIData() error = %v", err)
+	}
+
+	payload := requireParameter(t, paramsByName(data[0].Params), "payload")
+	if got := len(payload.Variants); got != 2 {
+		t.Fatalf("payload variants len = %d, want 2", got)
+	}
+
+	if got, want := payload.Description, "Payload to send."; got != want {
+		t.Fatalf("payload description = %q, want %q", got, want)
+	}
+
+	status := requireParameter(t, paramsByName(data[0].Params), "status")
+	if got, want := status.Description, "Status value."; got != want {
+		t.Fatalf("status description = %q, want %q", got, want)
+	}
+
+	if got := len(status.AllowedValues); got != 9 {
+		t.Fatalf("status allowed values len = %d, want 9", got)
+	}
+
+	tmpl := buildMethodTemplate(t)
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data[0]); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertRenderedContains(t, rendered.String(), []string{
+		"Payload to send.",
+		"<Tab title=\"String\">",
+		"<Tab title=\"Object\">",
+		"Status value.",
+		"<Expandable title=\"Allowed values\">",
+		"- `'nine'`",
+	})
+}
+
 func TestGetAPIDataRendersReturns(t *testing.T) {
 	t.Parallel()
 
@@ -666,7 +971,15 @@ paths:
 		t.Fatalf("getAPIData() len = %d, want 1", len(data))
 	}
 
-	returns := paramsByNameFromResponses(data[0].Returns)
+	if got := len(data[0].Responses); got != 1 {
+		t.Fatalf("responses len = %d, want 1", got)
+	}
+
+	if got, want := data[0].Responses[0].StatusCode, "201"; got != want {
+		t.Fatalf("success response status = %q, want %q", got, want)
+	}
+
+	returns := paramsByNameFromResponses(data[0].Responses[0].Fields)
 	assertResponseField(t, returns, ResponseField{
 		Name:        "taskID",
 		Description: "Task identifier.",
@@ -688,7 +1001,10 @@ paths:
 
 	assertRenderedContains(t, rendered.String(), []string{
 		"## Returns",
-		"<ResponseField name=\"taskID\" type=\"string\" required>",
+		"<Tabs sync={false}>",
+		"<Tab title=\"201\">",
+		"Created",
+		"<ResponseField name=\"taskID\" type=\"string\">",
 		"Task identifier.",
 		"<ResponseField name=\"result\" type=\"object | string\">",
 		"<Tabs sync={false}>",
@@ -696,7 +1012,7 @@ paths:
 		"String result.",
 		"<Tab title=\"Object\">",
 		"Object result.",
-		"<ResponseField name=\"status\" type=\"string\" required>",
+		"<ResponseField name=\"status\" type=\"string\">",
 		"Result status.",
 	})
 }
@@ -778,7 +1094,11 @@ paths:
 		t.Fatalf("payload children len = %d, want 1", got)
 	}
 
-	result := requireResponseField(t, paramsByNameFromResponses(data[0].Returns), "result")
+	result := requireResponseField(
+		t,
+		paramsByNameFromResponses(data[0].Responses[0].Fields),
+		"result",
+	)
 	if got := len(result.Variants); got != 0 {
 		t.Fatalf("result variants len = %d, want 0", got)
 	}
@@ -797,7 +1117,7 @@ paths:
 	assertRenderedContains(t, rendered.String(), []string{
 		"<ParamField path=\"payload\" type=\"object | null\" required>",
 		"<ParamField path=\"query\" type=\"string\" required>",
-		"<ResponseField name=\"result\" type=\"string | null\" required>",
+		"<ResponseField name=\"result\" type=\"string | null\">",
 	})
 	assertRenderedNotContains(t, rendered.String(), []string{
 		"<Tab title=\"Object\">",
@@ -1239,7 +1559,7 @@ paths:
 	}
 
 	if got, want := responseFieldNames(
-		data[0].Returns,
+		data[0].Responses[0].Fields,
 	), []string{
 		"alpha",
 		"zeta",
@@ -1249,6 +1569,337 @@ paths:
 	) {
 		t.Fatalf("returns = %#v, want %#v", got, want)
 	}
+}
+
+func TestGetAPIDataRendersSuccessAndErrorResponses(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/responses:
+    post:
+      operationId: createResponses
+      summary: Create responses
+      description: Create responses.
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  taskID:
+                    type: string
+                    description: Task identifier.
+                required:
+                  - taskID
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error message.
+                required:
+                  - message
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    description: Error detail.
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	data, err := getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFilename:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err != nil {
+		t.Fatalf("getAPIData() error = %v", err)
+	}
+
+	if got := len(data[0].Responses); got != 3 {
+		t.Fatalf("responses len = %d, want 3", got)
+	}
+
+	if got, want := data[0].Responses[0].StatusCode, "202"; got != want {
+		t.Fatalf("first response status = %q, want %q", got, want)
+	}
+
+	if got, want := data[0].Responses[1].StatusCode, "400"; got != want {
+		t.Fatalf("second response status = %q, want %q", got, want)
+	}
+
+	if got, want := data[0].Responses[2].StatusCode, "default"; got != want {
+		t.Fatalf("third response status = %q, want %q", got, want)
+	}
+
+	tmpl := buildMethodTemplate(t)
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data[0]); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertRenderedContains(t, rendered.String(), []string{
+		"## Returns",
+		"<Tabs sync={false}>",
+		"<Tab title=\"202\">",
+		"Accepted",
+		"<ResponseField name=\"taskID\" type=\"string\">",
+		"<Tab title=\"400\">",
+		"Bad request",
+		"<ResponseField name=\"message\" type=\"string\">",
+		"<Tab title=\"default\">",
+		"Unexpected error",
+		"<ResponseField name=\"detail\" type=\"string\">",
+	})
+	assertRenderedNotContains(t, rendered.String(), []string{
+		"## Errors",
+	})
+}
+
+func TestGetAPIDataKeepsDescriptionOnlyResponses(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/multi-success:
+    post:
+      operationId: createMultiSuccess
+      summary: Create multi success
+      description: Create multi success.
+      responses:
+        '200':
+          description: Empty success
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  taskID:
+                    type: string
+                    description: Task identifier.
+                required:
+                  - taskID
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	data, err := getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFilename:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err != nil {
+		t.Fatalf("getAPIData() error = %v", err)
+	}
+
+	if got := len(data[0].Responses); got != 2 {
+		t.Fatalf("responses len = %d, want 2", got)
+	}
+
+	if got, want := data[0].Responses[0].StatusCode, "200"; got != want {
+		t.Fatalf("first response status = %q, want %q", got, want)
+	}
+
+	if got, want := data[0].Responses[1].StatusCode, "201"; got != want {
+		t.Fatalf("second response status = %q, want %q", got, want)
+	}
+
+	tmpl := buildMethodTemplate(t)
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data[0]); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertRenderedContains(t, rendered.String(), []string{
+		"## Returns",
+		"<Tabs sync={false}>",
+		"<Tab title=\"200\">",
+		"Empty success",
+		"<Tab title=\"201\">",
+		"Created",
+		"<ResponseField name=\"taskID\" type=\"string\">",
+	})
+}
+
+func TestGetAPIDataPrefersJSONResponseContentOverEarlierNonJSON(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/multi-content:
+    get:
+      operationId: getMultiContent
+      summary: Get multi content
+      description: Get multi content.
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: Plain text body.
+            application/json:
+              schema:
+                type: object
+                properties:
+                  taskID:
+                    type: string
+                    description: Task identifier.
+                required:
+                  - taskID
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	data, err := getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFilename:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err != nil {
+		t.Fatalf("getAPIData() error = %v", err)
+	}
+
+	if got := len(data[0].Responses); got != 1 {
+		t.Fatalf("responses len = %d, want 1", got)
+	}
+
+	fields := paramsByNameFromResponses(data[0].Responses[0].Fields)
+	assertResponseField(t, fields, ResponseField{
+		Name:        "taskID",
+		Description: "Task identifier.",
+		Required:    true,
+		Type:        "string",
+	})
+
+	tmpl := buildMethodTemplate(t)
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data[0]); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertRenderedContains(t, rendered.String(), []string{
+		"<ResponseField name=\"taskID\" type=\"string\">",
+		"Task identifier.",
+	})
+	assertRenderedNotContains(t, rendered.String(), []string{
+		"Plain text body.",
+		"<ResponseField name=\"response\" type=\"string\">",
+	})
+}
+
+func TestGetAPIDataRendersDeprecatedParametersAndResponseFields(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/deprecated-fields:
+    post:
+      operationId: createDeprecatedFields
+      summary: Create deprecated fields
+      description: Create deprecated fields.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                legacyParam:
+                  type: string
+                  deprecated: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  legacyField:
+                    type: string
+                    deprecated: true
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	data, err := getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFilename:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err != nil {
+		t.Fatalf("getAPIData() error = %v", err)
+	}
+
+	params := paramsByName(data[0].Params)
+	assertParameter(t, params, Parameter{
+		Name:       "legacyParam",
+		Deprecated: true,
+		Type:       "string",
+	})
+
+	fields := paramsByNameFromResponses(data[0].Responses[0].Fields)
+	assertResponseField(t, fields, ResponseField{
+		Name:       "legacyField",
+		Deprecated: true,
+		Type:       "string",
+	})
+
+	tmpl := buildMethodTemplate(t)
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data[0]); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertRenderedContains(t, rendered.String(), []string{
+		"<ParamField path=\"legacyParam\" type=\"string\" deprecated>",
+		"<ResponseField name=\"legacyField\" type=\"string\" deprecated>",
+	})
 }
 
 func assertNestedUserParameters(t *testing.T, params []Parameter) {
@@ -1375,9 +2026,10 @@ func assertRenderedNotContains(t *testing.T, rendered string, wants []string) {
 func assertParameter(t *testing.T, params map[string]Parameter, want Parameter) {
 	t.Helper()
 
-	got := requireParameter(t, params, want.Name)
+	got := requireParameter(t, params, want.Name, want.In)
 
-	if got.Description != want.Description || got.Required != want.Required ||
+	if (want.In != "" && got.In != want.In) || got.Description != want.Description ||
+		got.Deprecated != want.Deprecated || got.Required != want.Required ||
 		got.Type != want.Type {
 		t.Fatalf("parameter %q = %#v, want %#v", want.Name, got, want)
 	}
@@ -1388,18 +2040,34 @@ func assertResponseField(t *testing.T, fields map[string]ResponseField, want Res
 
 	got := requireResponseField(t, fields, want.Name)
 
-	if got.Description != want.Description || got.Required != want.Required ||
+	if got.Description != want.Description || got.Deprecated != want.Deprecated ||
+		got.Required != want.Required ||
 		got.Type != want.Type {
 		t.Fatalf("response field %q = %#v, want %#v", want.Name, got, want)
 	}
 }
 
-func requireParameter(t *testing.T, params map[string]Parameter, name string) Parameter {
+func requireParameter(
+	t *testing.T,
+	params map[string]Parameter,
+	name string,
+	in ...string,
+) Parameter {
 	t.Helper()
 
-	got, ok := params[name]
+	key := name
+	if len(in) > 0 && in[0] != "" {
+		key = parameterKey(name, in[0])
+	}
+
+	got, ok := params[key]
 	if !ok {
-		t.Fatalf("parameter %q missing in %#v", name, params)
+		location := ""
+		if len(in) > 0 {
+			location = in[0]
+		}
+
+		t.Fatalf("parameter %q in %q missing in %#v", name, location, params)
 	}
 
 	return got
@@ -1438,6 +2106,15 @@ func paramsByName(params []Parameter) map[string]Parameter {
 	result := make(map[string]Parameter, len(params))
 	for _, param := range params {
 		result[param.Name] = param
+	}
+
+	return result
+}
+
+func paramsByNameAndIn(params []Parameter) map[string]Parameter {
+	result := make(map[string]Parameter, len(params))
+	for _, param := range params {
+		result[parameterKey(param.Name, param.In)] = param
 	}
 
 	return result

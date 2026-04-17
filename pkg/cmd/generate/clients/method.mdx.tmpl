@@ -35,11 +35,11 @@ public: true
 
 {{ renderParamFields .Params }}
 {{- end }}
-{{ if .Returns }}
+{{ if .Responses }}
 
 ## Returns
 
-{{ renderResponseFields .Returns }}
+{{ renderResponses .Responses }}
 {{- end }}
 
 <Card
@@ -50,7 +50,7 @@ public: true
   href="/doc/rest-api/{{ .APIName }}/{{ .OperationIDKebab }}"
 >
 
-For HTTP endpoint details and response fields.
+For details about the underlying HTTP method.
 
 </Card>
 {{- if .SeeAlso }}
