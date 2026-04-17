@@ -13,6 +13,14 @@ import (
 )
 
 func normalizeVariantParentType(current string, variants []ParameterVariant) string {
+	if normalized, ok := normalizeArrayObjectType(current); ok {
+		return normalized
+	}
+
+	if strings.HasPrefix(current, "array<") {
+		return current
+	}
+
 	if strings.Count(current, "object") >= 2 {
 		return "object"
 	}
@@ -22,6 +30,29 @@ func normalizeVariantParentType(current string, variants []ParameterVariant) str
 	}
 
 	return "object"
+}
+
+func normalizeArrayObjectType(current string) (string, bool) {
+	if !strings.HasPrefix(current, "array<") || !strings.HasSuffix(current, ">") {
+		return "", false
+	}
+
+	inner := strings.TrimSuffix(strings.TrimPrefix(current, "array<"), ">")
+	if !strings.Contains(inner, "object") {
+		return "", false
+	}
+
+	if strings.Contains(inner, "&") {
+		return "array<object>", true
+	}
+
+	for _, scalar := range []string{"string", "number", "integer", "boolean", "null", "'"} {
+		if strings.Contains(inner, scalar) {
+			return "", false
+		}
+	}
+
+	return "array<object>", true
 }
 
 func variantsAllHaveChildren(variants []ParameterVariant) bool {
@@ -359,8 +390,7 @@ func allOfObjectLike(proxies []*base.SchemaProxy) bool {
 }
 
 func arrayTypeSummary(schema *base.Schema, seen map[string]bool) string {
-	if !schemaHasType(schema, "array") || schema.Items == nil || !schema.Items.IsA() ||
-		schema.Items.A == nil {
+	if schema.Items == nil || !schema.Items.IsA() || schema.Items.A == nil {
 		return ""
 	}
 
@@ -539,6 +569,32 @@ func schemaProxyVariants(proxy *base.SchemaProxy, seen map[string]bool) []Parame
 		return variants
 	}
 
+	if variants := arrayItemVariants(schema, seen); len(variants) > 0 {
+		return variants
+	}
+
+	return nil
+}
+
+func arrayItemVariants(schema *base.Schema, seen map[string]bool) []ParameterVariant {
+	if schema == nil || schema.Items == nil || !schema.Items.IsA() || schema.Items.A == nil {
+		return nil
+	}
+
+	proxy := schema.Items.A
+	schema, err := proxy.BuildSchema()
+	if err != nil || schema == nil {
+		return nil
+	}
+
+	if variants := buildRenderableSchemaVariants(schema.OneOf, seen); len(variants) > 0 {
+		return variants
+	}
+
+	if variants := buildRenderableSchemaVariants(schema.AnyOf, seen); len(variants) > 0 {
+		return variants
+	}
+
 	return nil
 }
 
@@ -546,24 +602,36 @@ func buildRenderableSchemaVariants(
 	proxies []*base.SchemaProxy,
 	seen map[string]bool,
 ) []ParameterVariant {
-	nonNullProxies, hasNull := splitNullSchemaVariants(proxies)
-	if len(nonNullProxies) == 0 {
+	renderableProxies, hasNull := renderableSchemaVariantProxies(proxies, seen)
+	if len(renderableProxies) == 0 {
 		return nil
 	}
 
-	if hasNull && len(nonNullProxies) == 1 {
+	if hasNull && len(renderableProxies) == 1 {
 		return nil
+	}
+
+	return buildSchemaVariants(renderableProxies, seen)
+}
+
+func renderableSchemaVariantProxies(
+	proxies []*base.SchemaProxy,
+	seen map[string]bool,
+) ([]*base.SchemaProxy, bool) {
+	nonNullProxies, hasNull := splitNullSchemaVariants(proxies)
+	if len(nonNullProxies) == 0 {
+		return nil, false
 	}
 
 	if hasRecursiveSchemaVariant(nonNullProxies, seen) {
-		return nil
+		return nil, false
 	}
 
 	if !hasStructuralSchemaVariant(nonNullProxies, seen) {
-		return nil
+		return nil, false
 	}
 
-	return buildSchemaVariants(nonNullProxies, seen)
+	return nonNullProxies, hasNull
 }
 
 func hasRecursiveSchemaVariant(proxies []*base.SchemaProxy, seen map[string]bool) bool {
@@ -641,12 +709,152 @@ func buildSchemaVariants(proxies []*base.SchemaProxy, seen map[string]bool) []Pa
 	usedTitles := map[string]int{}
 
 	for index, proxy := range proxies {
-		variant := buildParameterVariant(proxy, cloneSeenRefs(seen), index)
-		variant.Title = uniqueVariantTitle(variant.Title, usedTitles)
+		expanded := expandParameterVariants(proxy, cloneSeenRefs(seen), index)
+		for _, variant := range expanded {
+			variant.Title = uniqueVariantTitle(variant.Title, usedTitles)
+			variants = append(variants, variant)
+		}
+	}
+
+	return variants
+}
+
+func expandParameterVariants(
+	proxy *base.SchemaProxy,
+	seen map[string]bool,
+	index int,
+) []ParameterVariant {
+	if variants := buildAllOfParameterVariants(
+		proxy,
+		cloneSeenRefs(seen),
+		index,
+	); len(
+		variants,
+	) > 0 {
+		return variants
+	}
+
+	return []ParameterVariant{buildParameterVariant(proxy, cloneSeenRefs(seen), index)}
+}
+
+func buildAllOfParameterVariants(
+	proxy *base.SchemaProxy,
+	seen map[string]bool,
+	index int,
+) []ParameterVariant {
+	if proxy == nil {
+		return nil
+	}
+
+	ref, alreadySeen := enterSchemaRef(seen, proxy)
+	if alreadySeen {
+		return nil
+	}
+
+	defer leaveSchemaRef(seen, ref)
+
+	schema, err := proxy.BuildSchema()
+	if err != nil || schema == nil || len(schema.AllOf) == 0 {
+		return nil
+	}
+
+	parentTitle := parameterVariantTitle(proxy, cloneSeenRefs(seen), index)
+	variantOperandIndex := -1
+	var variantProxies []*base.SchemaProxy
+
+	for operandIndex, operand := range schema.AllOf {
+		if operand == nil {
+			continue
+		}
+
+		operandSchema, err := operand.BuildSchema()
+		if err != nil || operandSchema == nil {
+			continue
+		}
+
+		proxies, _ := renderableSchemaVariantProxies(operandSchema.OneOf, cloneSeenRefs(seen))
+		if len(proxies) == 0 {
+			proxies, _ = renderableSchemaVariantProxies(operandSchema.AnyOf, cloneSeenRefs(seen))
+		}
+
+		if len(proxies) == 0 {
+			continue
+		}
+
+		if variantOperandIndex != -1 {
+			return nil
+		}
+
+		variantOperandIndex = operandIndex
+		variantProxies = proxies
+	}
+
+	if variantOperandIndex == -1 {
+		return nil
+	}
+
+	sharedChildren := allOfSharedChildren(schema.AllOf, variantOperandIndex, seen)
+	variants := make([]ParameterVariant, 0, len(variantProxies))
+
+	for variantIndex, variantProxy := range variantProxies {
+		variant := buildParameterVariant(variantProxy, cloneSeenRefs(seen), variantIndex)
+		variant.Title = combineVariantTitles(parentTitle, variant.Title)
+		variant.Children = mergeVariantChildren(variant.Children, sharedChildren)
 		variants = append(variants, variant)
 	}
 
 	return variants
+}
+
+func allOfSharedChildren(
+	operands []*base.SchemaProxy,
+	skipIndex int,
+	seen map[string]bool,
+) []Parameter {
+	var result []Parameter
+	indexes := map[string]int{}
+
+	for operandIndex, operand := range operands {
+		if operandIndex == skipIndex {
+			continue
+		}
+
+		params := schemaProxyAllOfParameters(operand, cloneSeenRefs(seen))
+		mergeParameters(&result, indexes, params)
+	}
+
+	return result
+}
+
+func mergeVariantChildren(existing, shared []Parameter) []Parameter {
+	if len(shared) == 0 {
+		return existing
+	}
+
+	result := append([]Parameter(nil), existing...)
+	indexes := make(map[string]int, len(result))
+	for idx, child := range result {
+		indexes[child.Name] = idx
+	}
+
+	mergeParameters(&result, indexes, shared)
+
+	return result
+}
+
+func combineVariantTitles(parent, child string) string {
+	parent = strings.TrimSpace(parent)
+	child = strings.TrimSpace(child)
+
+	if parent == "" {
+		return child
+	}
+
+	if child == "" || child == parent {
+		return parent
+	}
+
+	return parent + " " + child
 }
 
 func buildParameterVariant(
@@ -1125,7 +1333,67 @@ func schemaProxyAllOfParameters(proxy *base.SchemaProxy, seen map[string]bool) [
 		return nil
 	}
 
-	return schemaObjectChildren(schema, seen)
+	if children := schemaObjectChildren(schema, seen); len(children) > 0 {
+		return children
+	}
+
+	if children := singleRenderableObjectVariantChildren(schema, seen); len(children) > 0 {
+		return children
+	}
+
+	return nil
+}
+
+func singleRenderableObjectVariantChildren(schema *base.Schema, seen map[string]bool) []Parameter {
+	if schema == nil {
+		return nil
+	}
+
+	if children := singleRenderableObjectVariantChildrenFromProxies(
+		schema.OneOf,
+		seen,
+	); len(
+		children,
+	) > 0 {
+		return children
+	}
+
+	if children := singleRenderableObjectVariantChildrenFromProxies(
+		schema.AnyOf,
+		seen,
+	); len(
+		children,
+	) > 0 {
+		return children
+	}
+
+	return nil
+}
+
+func singleRenderableObjectVariantChildrenFromProxies(
+	proxies []*base.SchemaProxy,
+	seen map[string]bool,
+) []Parameter {
+	if len(proxies) == 0 {
+		return nil
+	}
+
+	nonNullProxies, _ := splitNullSchemaVariants(proxies)
+	objectLike := make([]*base.SchemaProxy, 0, len(nonNullProxies))
+
+	for _, proxy := range nonNullProxies {
+		if !schemaProxyIsObjectLike(proxy) {
+			continue
+		}
+
+		objectLike = append(objectLike, proxy)
+	}
+
+	if len(objectLike) != 1 {
+		return nil
+	}
+
+	return schemaProxyChildren(objectLike[0], seen)
 }
 
 func mergeParameters(result *[]Parameter, indexes map[string]int, incoming []Parameter) {
@@ -1231,8 +1499,7 @@ func mergeAllowedValues(existing, incoming []string) []string {
 }
 
 func arrayChildren(schema *base.Schema, seen map[string]bool) []Parameter {
-	if !schemaHasType(schema, "array") || schema.Items == nil || !schema.Items.IsA() ||
-		schema.Items.A == nil {
+	if schema.Items == nil || !schema.Items.IsA() || schema.Items.A == nil {
 		return nil
 	}
 

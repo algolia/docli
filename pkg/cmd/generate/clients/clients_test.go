@@ -1378,6 +1378,413 @@ paths:
 	})
 }
 
+func TestGetAPIDataKeepsArrayTypeForPolymorphicRefItems(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/search:
+    post:
+      operationId: search
+      summary: Search multiple indices
+      description: Search multiple indices.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                requests:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/SearchQuery'
+              required:
+                - requests
+components:
+  schemas:
+    SearchQuery:
+      oneOf:
+        - $ref: '#/components/schemas/SearchForHits'
+        - $ref: '#/components/schemas/SearchForFacets'
+    SearchForHits:
+      type: object
+      properties:
+        indexName:
+          type: string
+          description: Index to search.
+        query:
+          type: string
+          description: Search query.
+      required:
+        - indexName
+    SearchForFacets:
+      type: object
+      properties:
+        indexName:
+          type: string
+          description: Index to search.
+        facet:
+          type: string
+          description: Facet to search.
+      required:
+        - indexName
+        - facet
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	data, err := getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFilename:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err != nil {
+		t.Fatalf("getAPIData() error = %v", err)
+	}
+
+	params := paramsByName(data[0].Params)
+	assertParameter(t, params, Parameter{
+		Name:     "requests",
+		Required: true,
+		Type:     "array<object>",
+	})
+
+	requests := requireParameter(t, params, "requests")
+	if got := len(requests.Children); got != 0 {
+		t.Fatalf("requests children len = %d, want 0", got)
+	}
+
+	if got := len(requests.Variants); got != 2 {
+		t.Fatalf("requests variants len = %d, want 2", got)
+	}
+
+	hitsVariant := requireParameterVariant(t, requests.Variants, "Search For Hits")
+	assertParameter(t, paramsByName(hitsVariant.Children), Parameter{
+		Name:        "indexName",
+		Description: "Index to search.",
+		Required:    true,
+		Type:        "string",
+	})
+	assertParameter(t, paramsByName(hitsVariant.Children), Parameter{
+		Name:        "query",
+		Description: "Search query.",
+		Required:    false,
+		Type:        "string",
+	})
+
+	facetsVariant := requireParameterVariant(t, requests.Variants, "Search For Facets")
+	assertParameter(t, paramsByName(facetsVariant.Children), Parameter{
+		Name:        "indexName",
+		Description: "Index to search.",
+		Required:    true,
+		Type:        "string",
+	})
+	assertParameter(t, paramsByName(facetsVariant.Children), Parameter{
+		Name:        "facet",
+		Description: "Facet to search.",
+		Required:    true,
+		Type:        "string",
+	})
+
+	tmpl := buildMethodTemplate(t)
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data[0]); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertRenderedContains(t, rendered.String(), []string{
+		"<ParamField path=\"requests\" type=\"object[]\" required>",
+		"<Tab title=\"Search For Hits\">",
+		"<Tab title=\"Search For Facets\">",
+		"<ParamField path=\"query\" type=\"string\">",
+		"<ParamField path=\"facet\" type=\"string\" required>",
+	})
+	assertRenderedNotContains(t, rendered.String(), []string{
+		"<Expandable title=\"properties\">",
+	})
+}
+
+func TestGetAPIDataNormalizesArrayOfCompositeObjectVariants(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/search:
+    post:
+      operationId: search
+      summary: Search multiple indices
+      description: Search multiple indices.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                requests:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/SearchQuery'
+              required:
+                - requests
+components:
+  schemas:
+    searchParamsString:
+      type: string
+    searchParamsObject:
+      type: object
+      properties:
+        query:
+          type: string
+          description: Search query.
+    searchParams:
+      oneOf:
+        - $ref: '#/components/schemas/searchParamsString'
+        - $ref: '#/components/schemas/searchParamsObject'
+    SearchForHitsOptions:
+      type: object
+      properties:
+        indexName:
+          type: string
+          description: Index to search.
+      required:
+        - indexName
+    SearchForFacetsOptions:
+      type: object
+      properties:
+        indexName:
+          type: string
+          description: Index to search.
+        facet:
+          type: string
+          description: Facet to search.
+      required:
+        - indexName
+        - facet
+    SearchForHits:
+      allOf:
+        - $ref: '#/components/schemas/searchParams'
+        - $ref: '#/components/schemas/SearchForHitsOptions'
+    SearchForFacets:
+      allOf:
+        - $ref: '#/components/schemas/searchParams'
+        - $ref: '#/components/schemas/SearchForFacetsOptions'
+    SearchQuery:
+      oneOf:
+        - $ref: '#/components/schemas/SearchForHits'
+        - $ref: '#/components/schemas/SearchForFacets'
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	data, err := getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFilename:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err != nil {
+		t.Fatalf("getAPIData() error = %v", err)
+	}
+
+	params := paramsByName(data[0].Params)
+	assertParameter(t, params, Parameter{
+		Name:     "requests",
+		Required: true,
+		Type:     "array<object>",
+	})
+
+	requests := requireParameter(t, params, "requests")
+	if got := len(requests.Variants); got != 4 {
+		t.Fatalf("requests variants len = %d, want 4", got)
+	}
+
+	hitsQueryStringVariant := requireParameterVariant(
+		t,
+		requests.Variants,
+		"Search For Hits Search Params string",
+	)
+	assertParameter(t, paramsByName(hitsQueryStringVariant.Children), Parameter{
+		Name:        "indexName",
+		Description: "Index to search.",
+		Required:    true,
+		Type:        "string",
+	})
+
+	hitsVariant := requireParameterVariant(t, requests.Variants, "Search For Hits Object")
+	assertParameter(t, paramsByName(hitsVariant.Children), Parameter{
+		Name:        "indexName",
+		Description: "Index to search.",
+		Required:    true,
+		Type:        "string",
+	})
+	assertParameter(t, paramsByName(hitsVariant.Children), Parameter{
+		Name:        "query",
+		Description: "Search query.",
+		Required:    false,
+		Type:        "string",
+	})
+
+	facetsQueryStringVariant := requireParameterVariant(
+		t,
+		requests.Variants,
+		"Search For Facets Search Params string",
+	)
+	assertParameter(t, paramsByName(facetsQueryStringVariant.Children), Parameter{
+		Name:        "indexName",
+		Description: "Index to search.",
+		Required:    true,
+		Type:        "string",
+	})
+
+	facetsVariant := requireParameterVariant(t, requests.Variants, "Search For Facets Object")
+	assertParameter(t, paramsByName(facetsVariant.Children), Parameter{
+		Name:        "indexName",
+		Description: "Index to search.",
+		Required:    true,
+		Type:        "string",
+	})
+	assertParameter(t, paramsByName(facetsVariant.Children), Parameter{
+		Name:        "facet",
+		Description: "Facet to search.",
+		Required:    true,
+		Type:        "string",
+	})
+
+	tmpl := buildMethodTemplate(t)
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data[0]); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertRenderedContains(t, rendered.String(), []string{
+		"<ParamField path=\"requests\" type=\"object[]\" required>",
+		"<Tab title=\"Search For Hits Search Params string\">",
+		"<Tab title=\"Search For Hits Object\">",
+		"<Tab title=\"Search For Facets Search Params string\">",
+		"<Tab title=\"Search For Facets Object\">",
+		"<ParamField path=\"query\" type=\"string\">",
+		"<ParamField path=\"facet\" type=\"string\" required>",
+	})
+}
+
+func TestGetAPIDataRendersArrayItemVariantsInResponses(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/search:
+    post:
+      operationId: search
+      summary: Search multiple indices
+      description: Search multiple indices.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SearchResult'
+                required:
+                  - results
+components:
+  schemas:
+    SearchResult:
+      oneOf:
+        - $ref: '#/components/schemas/SearchForHitsResult'
+        - $ref: '#/components/schemas/SearchForFacetsResult'
+    SearchForHitsResult:
+      type: object
+      properties:
+        hits:
+          type: array
+          items:
+            type: string
+        query:
+          type: string
+          description: Search query.
+      required:
+        - hits
+    SearchForFacetsResult:
+      type: object
+      properties:
+        facetHits:
+          type: array
+          items:
+            type: string
+        facet:
+          type: string
+          description: Facet name.
+      required:
+        - facetHits
+        - facet
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	data, err := getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFilename:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err != nil {
+		t.Fatalf("getAPIData() error = %v", err)
+	}
+
+	results := requireResponseField(
+		t,
+		paramsByNameFromResponses(data[0].Responses[0].Fields),
+		"results",
+	)
+	if got, want := results.Type, "array<object>"; got != want {
+		t.Fatalf("results type = %q, want %q", got, want)
+	}
+
+	if got := len(results.Variants); got != 2 {
+		t.Fatalf("results variants len = %d, want 2", got)
+	}
+
+	tmpl := buildMethodTemplate(t)
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data[0]); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertRenderedContains(t, rendered.String(), []string{
+		"<ResponseField name=\"results\" type=\"array&lt;object&gt;\">",
+		"<Tab title=\"Search For Hits Result\">",
+		"<Tab title=\"Search For Facets Result\">",
+		"<ResponseField name=\"query\" type=\"string\">",
+		"<ResponseField name=\"facet\" type=\"string\">",
+	})
+}
+
 func TestGetAPIDataRendersAllowedValuesForLargeEnums(t *testing.T) {
 	t.Parallel()
 
@@ -2142,6 +2549,24 @@ func requireVariantWithChildren(t *testing.T, variants []ParameterVariant) Param
 	}
 
 	t.Fatalf("no variant with children in %#v", variants)
+
+	return ParameterVariant{}
+}
+
+func requireParameterVariant(
+	t *testing.T,
+	variants []ParameterVariant,
+	title string,
+) ParameterVariant {
+	t.Helper()
+
+	for _, variant := range variants {
+		if variant.Title == title {
+			return variant
+		}
+	}
+
+	t.Fatalf("variant %q missing in %#v", title, variants)
 
 	return ParameterVariant{}
 }
