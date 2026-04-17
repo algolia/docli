@@ -217,6 +217,11 @@ components:
 
 	assertRenderedContains(t, rendered.String(), []string{
 		"## Parameters",
+		"The tabs in the [Usage](#usage) section show API client-specific call shapes.",
+		"The parameters below describe the shared request fields that you pass as arguments in most API clients.",
+		"Parameter names and syntax may vary by language.",
+		"For example, some clients use `snake_case`.",
+		"Others use different patterns, such as builder methods.",
 		"operationId:\n  - searchSingleIndex\n  - SearchSingleIndex\n  - search_single_index",
 		"<ParamField path=\"indexName\" type=\"string\" required>",
 		"Index to search.",
@@ -1011,6 +1016,8 @@ paths:
 
 	assertRenderedContains(t, rendered.String(), []string{
 		"## Returns",
+		"The fields below describe the shared response shape.",
+		"Some API clients wrap this payload in language-specific response objects or generics.",
 		"<Tabs sync={false}>",
 		"<Tab title=\"201\">",
 		"Created",
