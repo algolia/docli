@@ -85,9 +85,11 @@ paths:
 
 	frontmatter := parseFrontmatter(t, rendered.String())
 	assertFrontmatterDescription(t, frontmatter, "Use the API key endpoint with filters:active.")
+	assertFrontmatterOperationIDs(t, frontmatter, []string{"getApiKey", "GetApiKey", "get_api_key"})
 
 	assertRenderedContains(t, rendered.String(), []string{
 		`description: "Use the API key endpoint with filters:active."`,
+		"operationId:\n  - getApiKey\n  - GetApiKey\n  - get_api_key",
 		"This body keeps [markdown](https://algolia.com/doc) and **details** intact.",
 		"**Required ACL:** `search`",
 		"For details about the underlying HTTP method.",
@@ -206,8 +208,16 @@ components:
 		t.Fatalf("Execute() error = %v", err)
 	}
 
+	frontmatter := parseFrontmatter(t, rendered.String())
+	assertFrontmatterOperationIDs(t, frontmatter, []string{
+		"searchSingleIndex",
+		"SearchSingleIndex",
+		"search_single_index",
+	})
+
 	assertRenderedContains(t, rendered.String(), []string{
 		"## Parameters",
+		"operationId:\n  - searchSingleIndex\n  - SearchSingleIndex\n  - search_single_index",
 		"<ParamField path=\"indexName\" type=\"string\" required>",
 		"Index to search.",
 		"<ParamField path=\"optionalFilters\" type=\"array&lt;optionalFilters&gt; (recursive) | string\" required>",
@@ -2007,6 +2017,26 @@ func assertFrontmatterDescription(t *testing.T, frontmatter map[string]any, want
 	gotDescription, ok := frontmatter["description"].(string)
 	if !ok || gotDescription != want {
 		t.Fatalf("frontmatter description = %#v, want %q", frontmatter["description"], want)
+	}
+}
+
+func assertFrontmatterOperationIDs(t *testing.T, frontmatter map[string]any, want []string) {
+	t.Helper()
+
+	raw, ok := frontmatter["operationId"].([]any)
+	if !ok {
+		t.Fatalf("frontmatter operationId = %#v, want %#v", frontmatter["operationId"], want)
+	}
+
+	if len(raw) != len(want) {
+		t.Fatalf("frontmatter operationId len = %d, want %d (%#v)", len(raw), len(want), raw)
+	}
+
+	for i := range want {
+		got, ok := raw[i].(string)
+		if !ok || got != want[i] {
+			t.Fatalf("frontmatter operationId[%d] = %#v, want %q", i, raw[i], want[i])
+		}
 	}
 }
 

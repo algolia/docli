@@ -145,6 +145,7 @@ func getAPIData(
 				Description:      long,
 				OutputFilename:   utils.GetOutputFilename(op),
 				OutputPath:       prefix,
+				OperationIDs:     utils.OperationIDVariants(op.OperationId),
 				OperationIDKebab: utils.ToKebabCase(op.OperationId),
 				Params:           sortParameters(pruneParameters(params)),
 				ShortDescription: short,

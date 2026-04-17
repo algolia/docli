@@ -1,6 +1,10 @@
 ---
 title: {{ .Summary }}
 description: {{ frontmatterString .ShortDescription }}
+operationId:
+{{- range .OperationIDs }}
+  - {{ . }}
+{{- end }}
 public: true
 ---
 {{- if .Deprecated }}

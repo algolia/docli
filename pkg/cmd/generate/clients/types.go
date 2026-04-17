@@ -24,6 +24,7 @@ type OperationData struct {
 	InputFilename    string
 	OutputFilename   string
 	OutputPath       string
+	OperationIDs     []string
 	OperationIDKebab string
 	Params           []Parameter
 	Responses        []OperationResponse
