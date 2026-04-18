@@ -106,6 +106,13 @@ func getRequestBodyParameters(op *v3.Operation) ([]Parameter, error) {
 
 	if schema != nil {
 		if params := schemaObjectChildren(schema, map[string]bool{}); len(params) > 0 {
+			if hasExplicitRequestBodyName(op, schema) {
+				param := buildSyntheticRequestBodyParameter(op, schema, mediaType.Schema)
+				param.Children = params
+
+				return []Parameter{param}, nil
+			}
+
 			return params, nil
 		}
 	}

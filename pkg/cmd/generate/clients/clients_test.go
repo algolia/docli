@@ -809,6 +809,115 @@ components:
 	})
 }
 
+func TestGetAPIDataKeepsExplicitlyNamedRequestBodyWrapper(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/search:
+    post:
+      operationId: search
+      summary: Search multiple indices
+      description: Search multiple indices.
+      requestBody:
+        required: true
+        description: Multi-search request body.
+        content:
+          application/json:
+            schema:
+              title: searchMethodParams
+              type: object
+              properties:
+                requests:
+                  type: array
+                  description: Requests to run.
+                  items:
+                    type: object
+                    properties:
+                      query:
+                        type: string
+                        description: Search query.
+                strategy:
+                  type: string
+                  description: Search strategy.
+              required:
+                - requests
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	data, err := getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFilename:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err != nil {
+		t.Fatalf("getAPIData() error = %v", err)
+	}
+
+	if len(data) != 1 {
+		t.Fatalf("getAPIData() len = %d, want 1", len(data))
+	}
+
+	if got := len(data[0].Params); got != 1 {
+		t.Fatalf("params len = %d, want 1", got)
+	}
+
+	params := paramsByName(data[0].Params)
+	body := requireParameter(t, params, "searchMethodParams")
+	assertParameter(t, params, Parameter{
+		Name:        "searchMethodParams",
+		Description: "Multi-search request body.",
+		Required:    true,
+		Type:        "object",
+	})
+
+	children := paramsByName(body.Children)
+	requests := requireParameter(t, children, "requests")
+	assertParameter(t, children, Parameter{
+		Name:        "requests",
+		Description: "Requests to run.",
+		Required:    true,
+		Type:        "array<object>",
+	})
+	assertParameter(t, children, Parameter{
+		Name:        "strategy",
+		Description: "Search strategy.",
+		Required:    false,
+		Type:        "string",
+	})
+	assertParameter(t, paramsByName(requests.Children), Parameter{
+		Name:        "query",
+		Description: "Search query.",
+		Required:    false,
+		Type:        "string",
+	})
+
+	tmpl := buildMethodTemplate(t)
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data[0]); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertRenderedContains(t, rendered.String(), []string{
+		"<ParamField path=\"searchMethodParams\" type=\"object\" required>",
+		"<ParamField path=\"requests\" type=\"object[]\" required>",
+		"<ParamField path=\"query\" type=\"string\">",
+		"<ParamField path=\"strategy\" type=\"string\">",
+		"<Expandable title=\"properties\">",
+	})
+	assertRenderedNotContains(t, rendered.String(), []string{
+		"<ParamField path=\"requestBody\"",
+	})
+}
+
 func TestGetAPIDataKeepsVariantsAndAllowedValuesWhenAllOfMergesDuplicateFields(t *testing.T) {
 	t.Parallel()
 
