@@ -586,6 +586,7 @@ func arrayItemVariants(schema *base.Schema, seen map[string]bool) []ParameterVar
 	}
 
 	proxy := schema.Items.A
+
 	schema, err := proxy.BuildSchema()
 	if err != nil || schema == nil {
 		return nil
@@ -763,35 +764,7 @@ func buildAllOfParameterVariants(
 	}
 
 	parentTitle := parameterVariantTitle(proxy, cloneSeenRefs(seen), index)
-	variantOperandIndex := -1
-	var variantProxies []*base.SchemaProxy
-
-	for operandIndex, operand := range schema.AllOf {
-		if operand == nil {
-			continue
-		}
-
-		operandSchema, err := operand.BuildSchema()
-		if err != nil || operandSchema == nil {
-			continue
-		}
-
-		proxies, _ := renderableSchemaVariantProxies(operandSchema.OneOf, cloneSeenRefs(seen))
-		if len(proxies) == 0 {
-			proxies, _ = renderableSchemaVariantProxies(operandSchema.AnyOf, cloneSeenRefs(seen))
-		}
-
-		if len(proxies) == 0 {
-			continue
-		}
-
-		if variantOperandIndex != -1 {
-			return nil
-		}
-
-		variantOperandIndex = operandIndex
-		variantProxies = proxies
-	}
+	variantOperandIndex, variantProxies := allOfVariantOperand(schema.AllOf, seen)
 
 	if variantOperandIndex == -1 {
 		return nil
@@ -810,12 +783,61 @@ func buildAllOfParameterVariants(
 	return variants
 }
 
+func allOfVariantOperand(
+	operands []*base.SchemaProxy,
+	seen map[string]bool,
+) (int, []*base.SchemaProxy) {
+	variantOperandIndex := -1
+
+	var variantProxies []*base.SchemaProxy
+
+	for operandIndex, operand := range operands {
+		proxies := allOfOperandVariantProxies(operand, seen)
+		if len(proxies) == 0 {
+			continue
+		}
+
+		if variantOperandIndex != -1 {
+			return -1, nil
+		}
+
+		variantOperandIndex = operandIndex
+		variantProxies = proxies
+	}
+
+	return variantOperandIndex, variantProxies
+}
+
+func allOfOperandVariantProxies(
+	operand *base.SchemaProxy,
+	seen map[string]bool,
+) []*base.SchemaProxy {
+	if operand == nil {
+		return nil
+	}
+
+	operandSchema, err := operand.BuildSchema()
+	if err != nil || operandSchema == nil {
+		return nil
+	}
+
+	proxies, _ := renderableSchemaVariantProxies(operandSchema.OneOf, cloneSeenRefs(seen))
+	if len(proxies) > 0 {
+		return proxies
+	}
+
+	proxies, _ = renderableSchemaVariantProxies(operandSchema.AnyOf, cloneSeenRefs(seen))
+
+	return proxies
+}
+
 func allOfSharedChildren(
 	operands []*base.SchemaProxy,
 	skipIndex int,
 	seen map[string]bool,
 ) []Parameter {
 	var result []Parameter
+
 	indexes := map[string]int{}
 
 	for operandIndex, operand := range operands {
@@ -836,7 +858,9 @@ func mergeVariantChildren(existing, shared []Parameter) []Parameter {
 	}
 
 	result := append([]Parameter(nil), existing...)
+
 	indexes := make(map[string]int, len(result))
+
 	for idx, child := range result {
 		indexes[child.Name] = idx
 	}
