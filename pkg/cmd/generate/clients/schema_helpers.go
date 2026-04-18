@@ -413,8 +413,10 @@ func scalarTypeSummary(schema *base.Schema) string {
 	return strings.Join(schema.Type, " | ")
 }
 
+const enumInlineThreshold = 4
+
 func enumTypeSummary(schema *base.Schema) string {
-	if schema == nil || len(schema.Enum) == 0 || len(schema.Enum) > 8 {
+	if schema == nil || len(schema.Enum) == 0 || len(schema.Enum) > enumInlineThreshold {
 		return ""
 	}
 
@@ -443,7 +445,7 @@ func enumTypeSummary(schema *base.Schema) string {
 }
 
 func largeEnumValues(schema *base.Schema) []string {
-	if schema == nil || len(schema.Enum) <= 8 {
+	if schema == nil || len(schema.Enum) <= enumInlineThreshold {
 		return nil
 	}
 

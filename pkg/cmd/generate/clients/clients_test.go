@@ -1604,6 +1604,82 @@ paths:
 	})
 }
 
+func TestGetAPIDataDoesNotInlineEnumsAboveThreshold(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/enums:
+    post:
+      operationId: createEnums
+      summary: Create enums
+      description: Create enums.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                typoTolerance:
+                  type: string
+                  description: Typo tolerance mode.
+                  enum:
+                    - false
+                    - min
+                    - strict
+                    - disabled
+                    - true
+              required:
+                - typoTolerance
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	data, err := getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFilename:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err != nil {
+		t.Fatalf("getAPIData() error = %v", err)
+	}
+
+	params := paramsByName(data[0].Params)
+	field := requireParameter(t, params, "typoTolerance")
+	if field.Type != "string" {
+		t.Fatalf("typoTolerance type = %q, want %q", field.Type, "string")
+	}
+
+	if got := len(field.AllowedValues); got != 5 {
+		t.Fatalf("allowed values len = %d, want 5", got)
+	}
+
+	tmpl := buildMethodTemplate(t)
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data[0]); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertRenderedContains(t, rendered.String(), []string{
+		"<ParamField path=\"typoTolerance\" type=\"string\" required>",
+		"<Expandable title=\"Allowed values\">",
+		"- `false`",
+		"- `'disabled'`",
+		"- `true`",
+	})
+	assertRenderedNotContains(t, rendered.String(), []string{
+		"boolean | &#39;false&#39; | &#39;min&#39; | &#39;strict&#39; | &#39;true&#39;",
+	})
+}
+
 func TestGetAPIDataKeepsArrayTypeForPolymorphicRefItems(t *testing.T) {
 	t.Parallel()
 
