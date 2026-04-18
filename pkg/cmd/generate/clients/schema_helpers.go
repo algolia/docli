@@ -220,16 +220,8 @@ func requestBodyName(op *v3.Operation, schema *base.Schema, proxy *base.SchemaPr
 	return "requestBody"
 }
 
-func hasExplicitRequestBodyName(op *v3.Operation, schema *base.Schema) bool {
-	if op.Extensions != nil {
-		if node, ok := op.Extensions.Get("x-codegen-request-body-name"); ok {
-			if strings.TrimSpace(node.Value) != "" {
-				return true
-			}
-		}
-	}
-
-	return schema != nil && strings.TrimSpace(schema.Title) != ""
+func hasNamedRequestBody(op *v3.Operation, schema *base.Schema, proxy *base.SchemaProxy) bool {
+	return requestBodyName(op, schema, proxy) != "requestBody"
 }
 
 func schemaProxyTypeSummary(proxy *base.SchemaProxy, seen map[string]bool) string {

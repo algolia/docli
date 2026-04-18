@@ -318,15 +318,23 @@ components:
 	})
 
 	assertParameter(t, paramsByNameAndIn(data[0].Params), Parameter{
-		Name:        "objectID",
+		Name:        "synonymHit",
 		In:          "body",
+		Description: "",
+		Required:    true,
+		Type:        "object",
+	})
+
+	body := requireParameter(t, paramsByNameAndIn(data[0].Params), "synonymHit", "body")
+	assertParameter(t, paramsByName(body.Children), Parameter{
+		Name:        "objectID",
 		Description: "Body object ID.",
 		Required:    true,
 		Type:        "string",
 	})
 
-	if len(data[0].Params) != 4 {
-		t.Fatalf("parameter count = %d, want 4", len(data[0].Params))
+	if len(data[0].Params) != 3 {
+		t.Fatalf("parameter count = %d, want 3", len(data[0].Params))
 	}
 }
 
@@ -912,6 +920,115 @@ paths:
 		"<ParamField path=\"query\" type=\"string\">",
 		"<ParamField path=\"strategy\" type=\"string\">",
 		"<Expandable title=\"properties\">",
+	})
+	assertRenderedNotContains(t, rendered.String(), []string{
+		"<ParamField path=\"requestBody\"",
+	})
+}
+
+func TestGetAPIDataKeepsRefNamedRequestBodyWrapper(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/indexes/{indexName}/settings:
+    put:
+      operationId: setSettings
+      summary: Update index settings
+      description: Update index settings.
+      parameters:
+        - name: indexName
+          in: path
+          required: true
+          description: Index to update.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/indexSettings'
+components:
+  schemas:
+    indexSettings:
+      description: Index settings.
+      allOf:
+        - type: object
+          properties:
+            paginationLimitedTo:
+              type: integer
+              description: Max pagination limit.
+        - type: object
+          properties:
+            typoTolerance:
+              type: string
+              description: Typo tolerance mode.
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	data, err := getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFilename:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err != nil {
+		t.Fatalf("getAPIData() error = %v", err)
+	}
+
+	if len(data) != 1 {
+		t.Fatalf("getAPIData() len = %d, want 1", len(data))
+	}
+
+	params := paramsByName(data[0].Params)
+	assertParameter(t, paramsByNameAndIn(data[0].Params), Parameter{
+		Name:        "indexName",
+		In:          "path",
+		Description: "Index to update.",
+		Required:    true,
+		Type:        "string",
+	})
+	assertParameter(t, params, Parameter{
+		Name:        "indexSettings",
+		Description: "",
+		Required:    true,
+		Type:        "object",
+	})
+
+	body := requireParameter(t, params, "indexSettings")
+	children := paramsByName(body.Children)
+	assertParameter(t, children, Parameter{
+		Name:        "paginationLimitedTo",
+		Description: "Max pagination limit.",
+		Required:    false,
+		Type:        "integer",
+	})
+	assertParameter(t, children, Parameter{
+		Name:        "typoTolerance",
+		Description: "Typo tolerance mode.",
+		Required:    false,
+		Type:        "string",
+	})
+
+	tmpl := buildMethodTemplate(t)
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data[0]); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertRenderedContains(t, rendered.String(), []string{
+		"<ParamField path=\"indexName\" type=\"string\" required>",
+		"<ParamField path=\"indexSettings\" type=\"object\" required>",
+		"<ParamField path=\"paginationLimitedTo\" type=\"number\">",
+		"<ParamField path=\"typoTolerance\" type=\"string\">",
 	})
 	assertRenderedNotContains(t, rendered.String(), []string{
 		"<ParamField path=\"requestBody\"",
