@@ -44,7 +44,8 @@ func pruneParameters(params []Parameter) []Parameter {
 
 func shouldRenderParameter(param Parameter) bool {
 	if param.Required || param.Deprecated || strings.TrimSpace(param.Description) != "" ||
-		len(param.Children) > 0 {
+		len(param.Children) > 0 || len(param.AllowedValues) > 0 ||
+		strings.TrimSpace(param.Type) != "" {
 		return true
 	}
 
@@ -165,7 +166,7 @@ func pruneResponseVariants(variants []ResponseVariant) []ResponseVariant {
 func shouldRenderResponseField(field ResponseField) bool {
 	if field.Required || field.Deprecated || strings.TrimSpace(field.Description) != "" ||
 		len(field.Children) > 0 ||
-		len(field.AllowedValues) > 0 {
+		len(field.AllowedValues) > 0 || strings.TrimSpace(field.Type) != "" {
 		return true
 	}
 

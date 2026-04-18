@@ -413,6 +413,78 @@ paths:
 	}
 }
 
+func TestGetAPIDataPrefersOperationParametersOverPathItemParameters(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/override:
+    parameters:
+      - name: hitsPerPage
+        in: query
+        required: false
+        description: Path page size.
+        schema:
+          type: string
+    get:
+      operationId: getOverride
+      summary: Get override
+      description: Get override.
+      parameters:
+        - name: hitsPerPage
+          in: query
+          required: true
+          description: Operation page size.
+          schema:
+            type: integer
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	data, err := getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFilename:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err != nil {
+		t.Fatalf("getAPIData() error = %v", err)
+	}
+
+	params := paramsByNameAndIn(data[0].Params)
+	assertParameter(t, params, Parameter{
+		Name:        "hitsPerPage",
+		In:          "query",
+		Description: "Operation page size.",
+		Required:    true,
+		Type:        "integer",
+	})
+
+	if got := len(data[0].Params); got != 1 {
+		t.Fatalf("parameter count = %d, want 1", got)
+	}
+
+	tmpl := buildMethodTemplate(t)
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data[0]); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertRenderedContains(t, rendered.String(), []string{
+		"Operation page size.",
+		`<ParamField path="hitsPerPage" type="number" required>`,
+	})
+	assertRenderedNotContains(t, rendered.String(), []string{
+		"Path page size.",
+	})
+}
+
 func TestGetAPIDataRendersNestedObjectParameters(t *testing.T) {
 	t.Parallel()
 
@@ -482,6 +554,7 @@ paths:
 	}
 
 	assertRenderedContains(t, rendered.String(), []string{
+		"<ParamField path=\"emptyLeaf\" type=\"string\">",
 		"<ParamField path=\"user\" type=\"object\">",
 		"<Expandable title=\"properties\">",
 		"<ParamField path=\"id\" type=\"string\" required>",
@@ -492,7 +565,6 @@ paths:
 	})
 
 	assertRenderedNotContains(t, rendered.String(), []string{
-		"<ParamField path=\"emptyLeaf\"",
 		"\n  <Expandable",
 		"\n    <ParamField",
 	})
@@ -1151,6 +1223,97 @@ paths:
 	})
 }
 
+func TestGetAPIDataMergesDuplicateVariantChildrenAcrossAllOf(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/variant-merge:
+    post:
+      operationId: createVariantMerge
+      summary: Create variant merge
+      description: Create variant merge.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  properties:
+                    payload:
+                      oneOf:
+                        - type: object
+                          description: Object payload.
+                          properties:
+                            query:
+                              type: string
+                              description: Query text.
+                          required:
+                            - query
+                - type: object
+                  properties:
+                    payload:
+                      oneOf:
+                        - type: object
+                          description: Object payload.
+                          properties:
+                            filters:
+                              type: string
+                              description: Filter text.
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	data, err := getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFilename:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err != nil {
+		t.Fatalf("getAPIData() error = %v", err)
+	}
+
+	payload := requireParameter(t, paramsByName(data[0].Params), "payload")
+	if got := len(payload.Variants); got != 1 {
+		t.Fatalf("payload variants len = %d, want 1", got)
+	}
+
+	objectVariant := requireParameterVariant(t, payload.Variants, "Object")
+	children := paramsByName(objectVariant.Children)
+	assertParameter(t, children, Parameter{
+		Name:        "query",
+		Description: "Query text.",
+		Required:    true,
+		Type:        "string",
+	})
+	assertParameter(t, children, Parameter{
+		Name:        "filters",
+		Description: "Filter text.",
+		Required:    false,
+		Type:        "string",
+	})
+
+	tmpl := buildMethodTemplate(t)
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data[0]); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertRenderedContains(t, rendered.String(), []string{
+		"<Tab title=\"Object\">",
+		"Query text.",
+		"Filter text.",
+	})
+}
+
 func TestGetAPIDataRendersReturns(t *testing.T) {
 	t.Parallel()
 
@@ -1652,6 +1815,7 @@ paths:
 	}
 
 	params := paramsByName(data[0].Params)
+
 	field := requireParameter(t, params, "typoTolerance")
 	if field.Type != "string" {
 		t.Fatalf("typoTolerance type = %q, want %q", field.Type, "string")
@@ -2555,6 +2719,151 @@ paths:
 	assertRenderedNotContains(t, rendered.String(), []string{
 		"Plain text body.",
 		"<ResponseField name=\"response\" type=\"string\">",
+	})
+}
+
+func TestGetAPIDataPrefersJSONRequestContentOverEarlierNonJSON(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/multi-request-content:
+    patch:
+      operationId: patchMultiContent
+      summary: Patch multi content
+      description: Patch multi content.
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              description: Plain text body.
+          application/merge-patch+json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                  description: Query text.
+              required:
+                - query
+      responses:
+        '200':
+          description: OK
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	data, err := getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFilename:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err != nil {
+		t.Fatalf("getAPIData() error = %v", err)
+	}
+
+	params := paramsByName(data[0].Params)
+	assertParameter(t, params, Parameter{
+		Name:        "query",
+		Description: "Query text.",
+		Required:    true,
+		Type:        "string",
+	})
+
+	tmpl := buildMethodTemplate(t)
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data[0]); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertRenderedContains(t, rendered.String(), []string{
+		"Query text.",
+		`<ParamField path="query" type="string" required>`,
+	})
+	assertRenderedNotContains(t, rendered.String(), []string{
+		"Plain text body.",
+		`<ParamField path="requestBody" type="string" required>`,
+	})
+}
+
+func TestGetAPIDataRendersTypedOptionalLeafRequestAndResponseFields(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/typed-optional-leaves:
+    post:
+      operationId: createTypedOptionalLeaves
+      summary: Create typed optional leaves
+      description: Create typed optional leaves.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                silentFlag:
+                  type: boolean
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cursor:
+                    type: string
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	data, err := getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFilename:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err != nil {
+		t.Fatalf("getAPIData() error = %v", err)
+	}
+
+	assertParameter(t, paramsByName(data[0].Params), Parameter{
+		Name:     "silentFlag",
+		Type:     "boolean",
+		Required: false,
+	})
+	assertResponseField(t, paramsByNameFromResponses(data[0].Responses[0].Fields), ResponseField{
+		Name:     "cursor",
+		Type:     "string",
+		Required: false,
+	})
+
+	tmpl := buildMethodTemplate(t)
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, data[0]); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertRenderedContains(t, rendered.String(), []string{
+		`<ParamField path="silentFlag" type="boolean">`,
+		`<ResponseField name="cursor" type="string">`,
 	})
 }
 

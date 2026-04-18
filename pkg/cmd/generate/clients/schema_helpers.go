@@ -149,11 +149,19 @@ func getRequestMediaType(content *orderedmap.Map[string, *v3.MediaType]) *v3.Med
 		return mediaType
 	}
 
+	if mediaType := firstJSONMediaType(content); mediaType != nil {
+		return mediaType
+	}
+
 	if mediaType, ok := content.Get("application/x-www-form-urlencoded"); ok {
 		return mediaType
 	}
 
 	if mediaType, ok := content.Get("multipart/form-data"); ok {
+		return mediaType
+	}
+
+	if mediaType := firstMediaTypeWithSchema(content); mediaType != nil {
 		return mediaType
 	}
 
@@ -165,6 +173,27 @@ func getRequestMediaType(content *orderedmap.Map[string, *v3.MediaType]) *v3.Med
 	return first.Value()
 }
 
+func firstJSONMediaType(content *orderedmap.Map[string, *v3.MediaType]) *v3.MediaType {
+	for pair := content.First(); pair != nil; pair = pair.Next() {
+		key := strings.TrimSpace(strings.ToLower(pair.Key()))
+		if strings.HasSuffix(key, "/json") || strings.HasSuffix(key, "+json") {
+			return pair.Value()
+		}
+	}
+
+	return nil
+}
+
+func firstMediaTypeWithSchema(content *orderedmap.Map[string, *v3.MediaType]) *v3.MediaType {
+	for pair := content.First(); pair != nil; pair = pair.Next() {
+		if pair.Value() != nil && pair.Value().Schema != nil {
+			return pair.Value()
+		}
+	}
+
+	return nil
+}
+
 func getResponseMediaType(content *orderedmap.Map[string, *v3.MediaType]) *v3.MediaType {
 	if content == nil {
 		return nil
@@ -174,17 +203,12 @@ func getResponseMediaType(content *orderedmap.Map[string, *v3.MediaType]) *v3.Me
 		return mediaType
 	}
 
-	for pair := content.First(); pair != nil; pair = pair.Next() {
-		key := strings.TrimSpace(strings.ToLower(pair.Key()))
-		if strings.HasSuffix(key, "/json") || strings.HasSuffix(key, "+json") {
-			return pair.Value()
-		}
+	if mediaType := firstJSONMediaType(content); mediaType != nil {
+		return mediaType
 	}
 
-	for pair := content.First(); pair != nil; pair = pair.Next() {
-		if pair.Value() != nil && pair.Value().Schema != nil {
-			return pair.Value()
-		}
+	if mediaType := firstMediaTypeWithSchema(content); mediaType != nil {
+		return mediaType
 	}
 
 	first := content.First()
@@ -1476,24 +1500,49 @@ func mergeParameterVariants(existing, incoming []ParameterVariant) []ParameterVa
 	}
 
 	result := append([]ParameterVariant(nil), existing...)
-	seen := make(map[string]struct{}, len(result))
+	indexes := make(map[string]int, len(result))
 
-	for _, variant := range result {
-		seen[parameterVariantKey(variant)] = struct{}{}
+	for idx, variant := range result {
+		indexes[parameterVariantKey(variant)] = idx
 	}
 
 	for _, variant := range incoming {
 		key := parameterVariantKey(variant)
-		if _, ok := seen[key]; ok {
+
+		idx, ok := indexes[key]
+		if ok {
+			result[idx] = mergeParameterVariant(result[idx], variant)
+
 			continue
 		}
 
-		seen[key] = struct{}{}
-
+		indexes[key] = len(result)
 		result = append(result, variant)
 	}
 
 	return result
+}
+
+func mergeParameterVariant(existing, incoming ParameterVariant) ParameterVariant {
+	if strings.TrimSpace(existing.Description) == "" {
+		existing.Description = incoming.Description
+	}
+
+	if existing.Type == "" || existing.Type == "object" {
+		if incoming.Type != "" {
+			existing.Type = incoming.Type
+		}
+	}
+
+	childIndexes := make(map[string]int, len(existing.Children))
+	for idx, child := range existing.Children {
+		childIndexes[child.Name] = idx
+	}
+
+	mergeParameters(&existing.Children, childIndexes, incoming.Children)
+	existing.AllowedValues = mergeAllowedValues(existing.AllowedValues, incoming.AllowedValues)
+
+	return existing
 }
 
 func parameterVariantKey(variant ParameterVariant) string {

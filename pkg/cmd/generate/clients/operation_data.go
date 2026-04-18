@@ -34,16 +34,16 @@ func getCodeSamples(op *v3.Operation) []CodeSample {
 
 func getParameters(pathItem *v3.PathItem, op *v3.Operation) ([]Parameter, error) {
 	result := make([]Parameter, 0, len(pathItem.Parameters)+len(op.Parameters))
-	seen := map[string]struct{}{}
+	indexes := map[string]int{}
 
 	for _, p := range pathItem.Parameters {
-		if err := appendOpenAPIParameter(&result, seen, p); err != nil {
+		if err := appendOpenAPIParameter(&result, indexes, p, false); err != nil {
 			return nil, err
 		}
 	}
 
 	for _, p := range op.Parameters {
-		if err := appendOpenAPIParameter(&result, seen, p); err != nil {
+		if err := appendOpenAPIParameter(&result, indexes, p, true); err != nil {
 			return nil, err
 		}
 	}
@@ -58,7 +58,12 @@ func getParameters(pathItem *v3.PathItem, op *v3.Operation) ([]Parameter, error)
 	return result, nil
 }
 
-func appendOpenAPIParameter(result *[]Parameter, seen map[string]struct{}, p *v3.Parameter) error {
+func appendOpenAPIParameter(
+	result *[]Parameter,
+	indexes map[string]int,
+	p *v3.Parameter,
+	replace bool,
+) error {
 	if p == nil {
 		return nil
 	}
@@ -69,18 +74,24 @@ func appendOpenAPIParameter(result *[]Parameter, seen map[string]struct{}, p *v3
 	}
 
 	key := parameterKey(name, p.In)
-	if _, ok := seen[key]; ok {
-		return nil
-	}
-
-	*result = append(*result, buildParameter(
+	param := buildParameter(
 		name,
 		strings.TrimSpace(p.Description),
 		boolOrFalse(p.Required),
 		p.In,
 		parameterSchema(p),
-	))
-	seen[key] = struct{}{}
+	)
+
+	if idx, ok := indexes[key]; ok {
+		if replace {
+			(*result)[idx] = param
+		}
+
+		return nil
+	}
+
+	indexes[key] = len(*result)
+	*result = append(*result, param)
 
 	return nil
 }
