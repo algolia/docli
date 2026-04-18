@@ -72,14 +72,46 @@ paths:
 	rendered := got.String()
 
 	frontmatter := parseFrontmatter(t, rendered)
+	assertFrontmatterTitle(t, frontmatter, "Get an API key")
 	assertFrontmatterDescription(t, frontmatter, "Retrieve the API key with filters:active.")
 
 	assertRenderedContains(t, rendered, []string{
-		"title: Get an API key",
+		`title: "Get an API key"`,
 		`description: "Retrieve the API key with filters:active."`,
 		"Use this endpoint to fetch a key by its value with **sample** output.",
 		"**Required ACL:** `search`",
 	})
+}
+
+func TestGetAPIDataRejectsMissingOperationID(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/keys/{key}:
+    get:
+      summary: Get an API key
+      description: Retrieve key.
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	_, err = getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFileName:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err == nil {
+		t.Fatal("expected missing operationId error")
+	}
+
+	assertRenderedContains(t, err.Error(), []string{"missing operationId for GET /1/keys/{key}"})
 }
 
 func TestGetAPIOverviewDataSplitsDescriptionWhenSummaryMissing(t *testing.T) {
@@ -87,7 +119,7 @@ func TestGetAPIOverviewDataSplitsDescriptionWhenSummaryMissing(t *testing.T) {
 
 	spec := []byte(`openapi: 3.0.0
 info:
-  title: Search API
+  title: "Search API: [Core]"
   version: 1.0.0
   description: |
     Learn the [Search API](https://algolia.com) endpoints.
@@ -132,9 +164,11 @@ paths: {}
 	}
 
 	frontmatter := parseFrontmatter(t, rendered.String())
+	assertFrontmatterTitle(t, frontmatter, "Search API: [Core]")
 	assertFrontmatterDescription(t, frontmatter, "Learn the Search API endpoints.")
 
 	assertRenderedContains(t, rendered.String(), []string{
+		`title: "Search API: [Core]"`,
 		"Use **filters** and _examples_ in the full overview.",
 	})
 }
@@ -164,6 +198,15 @@ func assertFrontmatterDescription(t *testing.T, frontmatter map[string]any, want
 	gotDescription, ok := frontmatter["description"].(string)
 	if !ok || gotDescription != want {
 		t.Fatalf("frontmatter description = %#v, want %q", frontmatter["description"], want)
+	}
+}
+
+func assertFrontmatterTitle(t *testing.T, frontmatter map[string]any, want string) {
+	t.Helper()
+
+	gotTitle, ok := frontmatter["title"].(string)
+	if !ok || gotTitle != want {
+		t.Fatalf("frontmatter title = %#v, want %q", frontmatter["title"], want)
 	}
 }
 

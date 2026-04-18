@@ -2,11 +2,17 @@ package clients
 
 import (
 	"bytes"
+	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"text/template"
+	"unsafe"
 
 	"github.com/algolia/docli/pkg/cmd/generate/utils"
+	base "github.com/pb33f/libopenapi/datamodel/high/base"
+	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
+	"github.com/pb33f/libopenapi/orderedmap"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -97,6 +103,67 @@ paths:
 	assertRenderedNotContains(t, rendered.String(), []string{
 		"For HTTP endpoint details and response fields.",
 	})
+}
+
+func TestGetAPIDataRejectsMissingOperationID(t *testing.T) {
+	t.Parallel()
+
+	spec := []byte(`openapi: 3.0.0
+info:
+  title: Search API
+  version: 1.0.0
+paths:
+  /1/keys/{key}:
+    get:
+      summary: Get an API key
+      description: Retrieve key.
+`)
+
+	doc, err := utils.LoadSpec(spec)
+	if err != nil {
+		t.Fatalf("LoadSpec() error = %v", err)
+	}
+
+	_, err = getAPIData(doc, &Options{
+		APIName:         "search",
+		InputFilename:   "specs/search.yml",
+		OutputDirectory: "out",
+	})
+	if err == nil {
+		t.Fatal("expected missing operationId error")
+	}
+
+	assertRenderedContains(t, err.Error(), []string{"missing operationId for GET /1/keys/{key}"})
+}
+
+func TestGetAPIDataReturnsResponseSchemaBuildErrors(t *testing.T) {
+	t.Parallel()
+
+	content := orderedmap.New[string, *v3.MediaType]()
+	content.Set(
+		"application/json",
+		&v3.MediaType{Schema: schemaProxyWithBuildError(errors.New("build failed"))},
+	)
+
+	op := &v3.Operation{
+		Responses: &v3.Responses{
+			Codes: orderedmap.New[string, *v3.Response](),
+		},
+	}
+	op.Responses.Codes.Set("200", &v3.Response{Description: "OK", Content: content})
+
+	_, err := getResponses(op)
+	if err == nil {
+		t.Fatal("expected response schema error")
+	}
+}
+
+func schemaProxyWithBuildError(err error) *base.SchemaProxy {
+	proxy := base.CreateSchemaProxy(nil)
+	field := reflect.ValueOf(proxy).Elem().FieldByName("buildError")
+	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Set(reflect.ValueOf(err))
+
+	return proxy
 }
 
 func TestGetAPIDataMergesTopLevelSDKInputs(t *testing.T) {

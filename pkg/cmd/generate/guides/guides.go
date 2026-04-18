@@ -87,6 +87,10 @@ func runCommand(opts *Options, printer *output.Printer) error {
 
 	sort.Strings(guideNames)
 
+	if err := validateGuideOutputPaths(guideNames, opts.OutputDirectory); err != nil {
+		return err
+	}
+
 	for _, guide := range guideNames {
 		err := writeGuide(
 			opts.OutputDirectory,
@@ -141,6 +145,26 @@ func sortLanguages(snippet map[string]string) []string {
 	sort.Strings(sorted)
 
 	return sorted
+}
+
+func validateGuideOutputPaths(guideNames []string, outputDir string) error {
+	seen := map[string]string{}
+
+	for _, guide := range guideNames {
+		fullPath := filepath.Join(outputDir, fmt.Sprintf("%s.mdx", utils.ToKebabCase(guide)))
+		if previous, ok := seen[fullPath]; ok {
+			return fmt.Errorf(
+				"guide outputs %q and %q both map to %s",
+				previous,
+				guide,
+				fullPath,
+			)
+		}
+
+		seen[fullPath] = guide
+	}
+
+	return nil
 }
 
 // writeGuide writes the guide snippets into MDX files.

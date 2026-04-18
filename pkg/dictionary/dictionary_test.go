@@ -59,6 +59,16 @@ func TestNormalize(t *testing.T) {
 			lang:     "python",
 			expected: "python",
 		},
+		{
+			name:     "Normalize cURL case-insensitively",
+			lang:     "cURL",
+			expected: "sh",
+		},
+		{
+			name:     "Normalize curl lowercase",
+			lang:     "curl",
+			expected: "sh",
+		},
 	}
 
 	for _, tt := range tests {

@@ -104,15 +104,17 @@ func runCommand(opts *Options, printer *output.Printer) error {
 }
 
 // getAPIData reads the OpenAPI spec and parses the operation data.
-//
-//nolint:funlen
 func getAPIData(
 	doc *libopenapi.DocumentModel[v3.Document],
 	opts *Options,
 ) ([]OperationData, error) {
 	var result []OperationData
 
-	prefix := fmt.Sprintf("%s/%s", opts.OutputDirectory, opts.APIName)
+	if doc == nil || doc.Model.Paths == nil {
+		return nil, nil
+	}
+
+	prefix := filepath.Join(opts.OutputDirectory, opts.APIName)
 
 	for pathPairs := doc.Model.Paths.PathItems.First(); pathPairs != nil; pathPairs = pathPairs.Next() {
 		pathName := pathPairs.Key()
@@ -122,50 +124,16 @@ func getAPIData(
 
 		pathItem := pathPairs.Value()
 		for opPairs := pathItem.GetOperations().First(); opPairs != nil; opPairs = opPairs.Next() {
-			op := opPairs.Value()
-
-			acl, err := utils.GetACL(op)
+			data, err := buildClientOperationData(
+				opPairs.Key(),
+				pathName,
+				pathItem,
+				opPairs.Value(),
+				opts,
+				prefix,
+			)
 			if err != nil {
-				return nil, fmt.Errorf("get ACL for %s %s: %w", opPairs.Key(), pathName, err)
-			}
-
-			short, long := utils.SplitDescription(op.Description)
-			short = utils.StripMarkdown(short)
-
-			params, err := getParameters(pathItem, op)
-			if err != nil {
-				return nil, fmt.Errorf("get parameters for %s %s: %w", opPairs.Key(), pathName, err)
-			}
-
-			data := OperationData{
-				ACL:              utils.AclToString(acl),
-				APIName:          opts.APIName,
-				CodeSamples:      getCodeSamples(op),
-				Deprecated:       boolOrFalse(op.Deprecated),
-				Description:      long,
-				OutputFilename:   utils.GetOutputFilename(op),
-				OutputPath:       prefix,
-				OperationIDs:     utils.OperationIDVariants(op.OperationId),
-				OperationIDKebab: utils.ToKebabCase(op.OperationId),
-				Params:           sortParameters(pruneParameters(params)),
-				ShortDescription: short,
-				Summary:          op.Summary,
-			}
-
-			data.Responses = sortOperationResponses(getResponses(op))
-
-			if data.ACL == "`admin`" {
-				data.RequiresAdmin = true
-			}
-
-			if op.ExternalDocs != nil {
-				desc := strings.TrimSpace(op.ExternalDocs.Description)
-				data.ExternalDocs.Description = strings.TrimSuffix(desc, ".")
-				data.ExternalDocs.URL = op.ExternalDocs.URL
-			}
-
-			if data.ExternalDocs.Description != "" && data.ExternalDocs.URL != "" {
-				data.SeeAlso = true
+				return nil, err
 			}
 
 			result = append(result, data)
@@ -173,6 +141,73 @@ func getAPIData(
 	}
 
 	return result, nil
+}
+
+func buildClientOperationData(
+	verb string,
+	pathName string,
+	pathItem *v3.PathItem,
+	op *v3.Operation,
+	opts *Options,
+	prefix string,
+) (OperationData, error) {
+	acl, err := utils.GetACL(op)
+	if err != nil {
+		return OperationData{}, fmt.Errorf("get ACL for %s %s: %w", verb, pathName, err)
+	}
+
+	operationID, err := utils.RequireOperationID(op.OperationId, verb, pathName)
+	if err != nil {
+		return OperationData{}, err
+	}
+
+	short, long := utils.SplitDescription(op.Description)
+	short = utils.StripMarkdown(short)
+
+	params, err := getParameters(pathItem, op)
+	if err != nil {
+		return OperationData{}, fmt.Errorf("get parameters for %s %s: %w", verb, pathName, err)
+	}
+
+	responses, err := getResponses(op)
+	if err != nil {
+		return OperationData{}, fmt.Errorf("get responses for %s %s: %w", verb, pathName, err)
+	}
+
+	data := OperationData{
+		ACL:              utils.AclToString(acl),
+		APIName:          opts.APIName,
+		CodeSamples:      getCodeSamples(op),
+		Deprecated:       boolOrFalse(op.Deprecated),
+		Description:      long,
+		OutputFilename:   utils.GetOutputFilenameForOperationID(operationID),
+		OutputPath:       prefix,
+		OperationIDs:     utils.OperationIDVariants(operationID),
+		OperationIDKebab: utils.ToKebabCase(operationID),
+		Params:           sortParameters(pruneParameters(params)),
+		Responses:        sortOperationResponses(responses),
+		ShortDescription: short,
+		Summary:          op.Summary,
+	}
+
+	if data.ACL == "`admin`" {
+		data.RequiresAdmin = true
+	}
+
+	applyExternalDocs(&data, op)
+
+	return data, nil
+}
+
+func applyExternalDocs(data *OperationData, op *v3.Operation) {
+	if data == nil || op == nil || op.ExternalDocs == nil {
+		return
+	}
+
+	desc := strings.TrimSpace(op.ExternalDocs.Description)
+	data.ExternalDocs.Description = strings.TrimSuffix(desc, ".")
+	data.ExternalDocs.URL = op.ExternalDocs.URL
+	data.SeeAlso = data.ExternalDocs.Description != "" && data.ExternalDocs.URL != ""
 }
 
 func writeAPIData(data []OperationData, tmpl *template.Template, printer *output.Printer) error {

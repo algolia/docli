@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -92,19 +93,30 @@ func (p *Printer) WriteFile(path string, write func(io.Writer) error) error {
 		return nil
 	}
 
-	output, err := os.Create(path)
+	output, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
 	if err != nil {
 		return fmt.Errorf("create %s: %w", path, err)
 	}
 
+	tempPath := output.Name()
+
 	if err := write(output); err != nil {
 		_ = output.Close()
+		_ = os.Remove(tempPath)
 
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 
 	if err := output.Close(); err != nil {
+		_ = os.Remove(tempPath)
+
 		return fmt.Errorf("close %s: %w", path, err)
+	}
+
+	if err := os.Rename(tempPath, path); err != nil {
+		_ = os.Remove(tempPath)
+
+		return fmt.Errorf("replace %s: %w", path, err)
 	}
 
 	return nil

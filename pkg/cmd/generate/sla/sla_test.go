@@ -9,35 +9,35 @@ import (
 func TestParseVersions(t *testing.T) {
 	testData := `{
 	  "csharp": {
-	    "1.0": {"releaseDate": "today", "slaStatus": "eligible"},
-			"2.0": {"releaseDate": "today", "slaStatus": "eligible", "slaEndDate": "tomorrow"}
+	    "1.0.0": {"releaseDate": "today", "slaStatus": "eligible"},
+			"2.0.0": {"releaseDate": "today", "slaStatus": "eligible", "slaEndDate": "tomorrow"}
 	  },
 	  "go": {
-	    "1.0": {"releaseDate": "today", "slaStatus": "eligible"},
-			"2.0": {"releaseDate": "today", "slaStatus": "eligible", "slaEndDate": "tomorrow"}
+	    "1.0.0": {"releaseDate": "today", "slaStatus": "eligible"},
+			"2.0.0": {"releaseDate": "today", "slaStatus": "eligible", "slaEndDate": "tomorrow"}
 	  }
 	}`
 
 	expected := Clients{
 		"csharp": Version{
-			"1.0": VersionInfo{
+			"1.0.0": VersionInfo{
 				ReleaseDate: "today",
 				SLAStatus:   "eligible",
 				SLAEndDate:  "",
 			},
-			"2.0": VersionInfo{
+			"2.0.0": VersionInfo{
 				ReleaseDate: "today",
 				SLAStatus:   "eligible",
 				SLAEndDate:  "tomorrow",
 			},
 		},
 		"go": Version{
-			"1.0": VersionInfo{
+			"1.0.0": VersionInfo{
 				ReleaseDate: "today",
 				SLAStatus:   "eligible",
 				SLAEndDate:  "",
 			},
-			"2.0": VersionInfo{
+			"2.0.0": VersionInfo{
 				ReleaseDate: "today",
 				SLAStatus:   "eligible",
 				SLAEndDate:  "tomorrow",
@@ -52,6 +52,19 @@ func TestParseVersions(t *testing.T) {
 
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("parsed mismatch.\nGot: %#v\nExpected: %#v", got, expected)
+	}
+}
+
+func TestParseVersionsRejectsInvalidSemver(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseVersions([]byte(`{
+	  "go": {
+	    "1.0": {"releaseDate": "today", "slaStatus": "eligible"}
+	  }
+	}`))
+	if err == nil {
+		t.Fatal("expected invalid semver error")
 	}
 }
 

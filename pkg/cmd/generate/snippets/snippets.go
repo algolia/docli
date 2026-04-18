@@ -81,6 +81,9 @@ func runCommand(opts *Options, printer *output.Printer) error {
 	printer.Infof("Writing output in: %s\n", opts.OutputDirectory)
 
 	rawSnippets := invertSnippets(data)
+	if err := validateSnippetOutputPaths(rawSnippets, opts.OutputDirectory); err != nil {
+		return err
+	}
 
 	for snippet, examples := range rawSnippets {
 		for name, example := range examples {
@@ -159,6 +162,45 @@ func invertSnippets(data NestedMap) NestedMap {
 	}
 
 	return result
+}
+
+func validateSnippetOutputPaths(rawSnippets NestedMap, outputDir string) error {
+	seen := map[string]string{}
+	snippets := sortedNestedKeys(rawSnippets)
+
+	for _, snippet := range snippets {
+		examples := rawSnippets[snippet]
+		dir := filepath.Join(outputDir, utils.ToKebabCase(snippet))
+
+		for _, name := range sortedNestedKeys(examples) {
+			fullPath := filepath.Join(dir, fmt.Sprintf("%s.mdx", utils.ToCamelCase(name)))
+			source := snippet + "/" + name
+
+			if previous, ok := seen[fullPath]; ok {
+				return fmt.Errorf(
+					"snippet outputs %q and %q both map to %s",
+					previous,
+					source,
+					fullPath,
+				)
+			}
+
+			seen[fullPath] = source
+		}
+	}
+
+	return nil
+}
+
+func sortedNestedKeys[T any](values map[string]T) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+
+	return keys
 }
 
 // writeSnippet writes the snippets into MDX files.

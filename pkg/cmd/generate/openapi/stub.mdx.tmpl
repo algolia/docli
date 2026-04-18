@@ -1,5 +1,5 @@
 ---
-title: {{ .Title }}
+title: {{ frontmatterString .Title }}
 description: {{ frontmatterString .ShortDescription }}
 openapi: {{ .InputFilename }} {{ .Verb }} {{ .APIPath }}
 public: true

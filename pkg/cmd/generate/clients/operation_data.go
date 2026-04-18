@@ -131,9 +131,9 @@ func getRequestBodyParameters(op *v3.Operation) ([]Parameter, error) {
 	return []Parameter{buildSyntheticRequestBodyParameter(op, schema, mediaType.Schema)}, nil
 }
 
-func getResponses(op *v3.Operation) []OperationResponse {
+func getResponses(op *v3.Operation) ([]OperationResponse, error) {
 	if op == nil || op.Responses == nil {
-		return nil
+		return nil, nil
 	}
 
 	var responses []OperationResponse
@@ -142,7 +142,11 @@ func getResponses(op *v3.Operation) []OperationResponse {
 		for pair := op.Responses.Codes.First(); pair != nil; pair = pair.Next() {
 			statusCode := strings.TrimSpace(pair.Key())
 
-			response := buildOperationResponse(statusCode, pair.Value())
+			response, err := buildOperationResponse(statusCode, pair.Value())
+			if err != nil {
+				return nil, err
+			}
+
 			if response == nil {
 				continue
 			}
@@ -151,32 +155,37 @@ func getResponses(op *v3.Operation) []OperationResponse {
 		}
 	}
 
-	if response := buildOperationResponse("default", op.Responses.Default); response != nil {
+	response, err := buildOperationResponse("default", op.Responses.Default)
+	if err != nil {
+		return nil, err
+	}
+
+	if response != nil {
 		responses = append(responses, *response)
 	}
 
-	return responses
+	return responses, nil
 }
 
-func buildOperationResponse(statusCode string, response *v3.Response) *OperationResponse {
+func buildOperationResponse(statusCode string, response *v3.Response) (*OperationResponse, error) {
 	if response == nil {
-		return nil
+		return nil, nil
 	}
 
 	description := strings.TrimSpace(response.Description)
 
 	if response.Content == nil {
-		return buildDescriptionOnlyResponse(statusCode, description)
+		return buildDescriptionOnlyResponse(statusCode, description), nil
 	}
 
 	mediaType := getResponseMediaType(response.Content)
 	if mediaType == nil || mediaType.Schema == nil {
-		return buildDescriptionOnlyResponse(statusCode, description)
+		return buildDescriptionOnlyResponse(statusCode, description), nil
 	}
 
 	schema, err := mediaType.Schema.BuildSchema()
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	fields := []ResponseField(nil)
@@ -190,7 +199,7 @@ func buildOperationResponse(statusCode string, response *v3.Response) *Operation
 
 	fields = sortResponseFields(pruneResponseFields(fields))
 	if len(fields) == 0 && description == "" {
-		return nil
+		return nil, nil
 	}
 
 	return &OperationResponse{
@@ -198,7 +207,7 @@ func buildOperationResponse(statusCode string, response *v3.Response) *Operation
 		Description:  description,
 		Fields:       fields,
 		SortPriority: responseSortPriority(statusCode),
-	}
+	}, nil
 }
 
 func buildDescriptionOnlyResponse(statusCode, description string) *OperationResponse {

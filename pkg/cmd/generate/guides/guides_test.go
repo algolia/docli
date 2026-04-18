@@ -1,7 +1,9 @@
 package guides
 
 import (
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -116,5 +118,19 @@ func TestGenerateMarkdownSnippet(t *testing.T) {
 				t.Errorf("generateMarkdownSnippet(%v) =\n%q\nwant:\n%q", tt.snippet, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestValidateGuideOutputPathsRejectsCollisions(t *testing.T) {
+	t.Parallel()
+
+	err := validateGuideOutputPaths([]string{"Foo Bar", "foo-bar"}, "out")
+	if err == nil {
+		t.Fatal("expected collision error")
+	}
+
+	wantPath := filepath.Join("out", "foo-bar.mdx")
+	if !strings.Contains(err.Error(), wantPath) {
+		t.Fatalf("error = %q, want path %q", err, wantPath)
 	}
 }
