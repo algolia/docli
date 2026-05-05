@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
-	github.com/pb33f/libopenapi v0.36.2
+	github.com/pb33f/libopenapi v0.36.3
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	go.yaml.in/yaml/v4 v4.0.0-rc.4
