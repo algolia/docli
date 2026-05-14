@@ -264,6 +264,60 @@ func TestOutputFilename(t *testing.T) {
 	}
 }
 
+func TestOperationIDVariants(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{
+			name:  "camelCase input",
+			input: "searchSingleIndex",
+			expected: []string{
+				"searchSingleIndex",
+				"SearchSingleIndex",
+				"search_single_index",
+			},
+		},
+		{
+			name:  "already PascalCase dedupes",
+			input: "SearchSingleIndex",
+			expected: []string{
+				"SearchSingleIndex",
+				"search_single_index",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := OperationIDVariants(tt.input)
+			if len(got) != len(tt.expected) {
+				t.Fatalf(
+					"OperationIDVariants() len = %d, want %d (%#v)",
+					len(got),
+					len(tt.expected),
+					got,
+				)
+			}
+
+			for i := range tt.expected {
+				if got[i] != tt.expected[i] {
+					t.Fatalf(
+						"OperationIDVariants()[%d] = %q, want %q (%#v)",
+						i,
+						got[i],
+						tt.expected[i],
+						got,
+					)
+				}
+			}
+		})
+	}
+}
+
 func TestSplitDescription(t *testing.T) {
 	tests := []struct {
 		name      string

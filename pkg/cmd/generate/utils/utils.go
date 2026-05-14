@@ -137,7 +137,54 @@ func LoadSpec(specFile []byte) (*libopenapi.DocumentModel[v3.Document], error) {
 
 // GetOutputFilename generates the filename from the operationId.
 func GetOutputFilename(op *v3.Operation) string {
-	return fmt.Sprintf("%s.mdx", ToKebabCase(op.OperationId))
+	return GetOutputFilenameForOperationID(op.OperationId)
+}
+
+// GetOutputFilenameForOperationID generates the filename from an operation ID.
+func GetOutputFilenameForOperationID(operationID string) string {
+	return fmt.Sprintf("%s.mdx", ToKebabCase(strings.TrimSpace(operationID)))
+}
+
+// RequireOperationID validates that an operation ID is present before generating output.
+func RequireOperationID(operationID, verb, path string) (string, error) {
+	operationID = strings.TrimSpace(operationID)
+	if operationID == "" {
+		return "", fmt.Errorf("missing operationId for %s %s", strings.ToUpper(verb), path)
+	}
+
+	return operationID, nil
+}
+
+// OperationIDVariants returns searchable casing variants for an operation ID.
+func OperationIDVariants(operationID string) []string {
+	operationID = strings.TrimSpace(operationID)
+	if operationID == "" {
+		return nil
+	}
+
+	kebab := ToKebabCase(operationID)
+	camel := ToCamelCase(kebab)
+	snake := strings.ReplaceAll(kebab, "-", "_")
+	pascal := Capitalize(camel)
+
+	variants := []string{operationID, pascal, snake}
+	result := make([]string, 0, len(variants))
+	seen := make(map[string]struct{}, len(variants))
+
+	for _, variant := range variants {
+		if variant == "" {
+			continue
+		}
+
+		if _, ok := seen[variant]; ok {
+			continue
+		}
+
+		seen[variant] = struct{}{}
+		result = append(result, variant)
+	}
+
+	return result
 }
 
 // Capitalize returns the capitalized word.

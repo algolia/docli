@@ -1,11 +1,16 @@
 ---
 title: {{ .Summary }}
 description: {{ frontmatterString .ShortDescription }}
+operationId:
+{{- range .OperationIDs }}
+  - {{ . }}
+{{- end }}
 public: true
 ---
 {{- if .Deprecated }}
 
 <Warning>This method is **deprecated.**</Warning>
+
 {{- end }}
 {{ if .RequiresAdmin }}
 **Requires Admin API key**
@@ -15,15 +20,40 @@ public: true
 
 {{ .Description }}
 {{ if .CodeSamples }}
+
 ## Usage
 
 <CodeGroup>
+
 {{ range .CodeSamples }}
 ```{{ .Lang }} {{ .Label }}
 {{ trim .Source }}
 ```
 {{ end }}
+
 </CodeGroup>
+{{- end }}
+{{- if .Params }}
+
+## Parameters
+
+The tabs in the [Usage](#usage) section show API client-specific call shapes.
+The parameters below describe the shared request fields that you pass as arguments in most API clients.
+
+Parameter names and syntax may vary by language.
+For example, some clients use `snake_case`.
+Others use different patterns, such as builder methods.
+
+{{ renderParamFields .Params }}
+{{- end }}
+{{ if .Responses }}
+
+## Returns
+
+The fields below describe the shared response shape.
+Some API clients wrap this payload in language-specific response objects or generics.
+
+{{ renderResponses .Responses }}
 {{- end }}
 
 <Card
@@ -33,8 +63,9 @@ public: true
   arrow="true"
   href="/doc/rest-api/{{ .APIName }}/{{ .OperationIDKebab }}"
 >
-For more details about input parameters
-and response fields.
+
+For details about the underlying HTTP method.
+
 </Card>
 {{- if .SeeAlso }}
 

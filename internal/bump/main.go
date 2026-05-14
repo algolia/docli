@@ -11,6 +11,10 @@ import (
 	"strings"
 )
 
+var runGitFn = runGit
+
+var runGitOutputFn = runGitOutput
+
 func main() {
 	dryRun := flag.Bool("dry-run", false, "preview the next tag without creating it")
 
@@ -65,7 +69,7 @@ func run(dryRun bool) error {
 		return nil
 	}
 
-	if err := runGit("tag", "-a", newTag, "-m", newTag); err != nil {
+	if err := runGitFn("tag", "-a", newTag, "-m", newTag); err != nil {
 		return err
 	}
 
@@ -76,7 +80,7 @@ func run(dryRun bool) error {
 }
 
 func ensureClean() error {
-	status, err := runGitOutput("status", "--porcelain")
+	status, err := runGitOutputFn("status", "--porcelain")
 	if err != nil {
 		return err
 	}
@@ -89,7 +93,7 @@ func ensureClean() error {
 }
 
 func latestVersionTag() (string, error) {
-	out, err := runGitOutput("tag", "-l", "v*", "--sort=-v:refname")
+	out, err := runGitOutputFn("tag", "--merged", "HEAD", "--list", "v*", "--sort=-v:refname")
 	if err != nil {
 		return "", err
 	}
@@ -103,7 +107,7 @@ func latestVersionTag() (string, error) {
 }
 
 func ensureCommits(rangeSpec, latestTag string) error {
-	out, err := runGitOutput("log", "--format=%s", rangeSpec)
+	out, err := runGitOutputFn("log", "--format=%s", rangeSpec)
 	if err != nil {
 		return err
 	}
@@ -120,18 +124,19 @@ func ensureCommits(rangeSpec, latestTag string) error {
 }
 
 func detectBump(rangeSpec string) (string, error) {
-	subjects, err := runGitOutput("log", "--format=%s", rangeSpec)
+	subjects, err := runGitOutputFn("log", "--format=%s", rangeSpec)
 	if err != nil {
 		return "", err
 	}
 
-	bodies, err := runGitOutput("log", "--format=%B", rangeSpec)
+	bodies, err := runGitOutputFn("log", "--format=%B", rangeSpec)
 	if err != nil {
 		return "", err
 	}
 
 	breakingHeader := regexp.MustCompile(`^[a-zA-Z]+(\([^)]+\))?!:`)
 	featHeader := regexp.MustCompile(`^feat(\([^)]+\))?:`)
+	breakingFooter := regexp.MustCompile(`(?m)^BREAKING[ -]CHANGE:\s+`)
 
 	for _, subject := range splitLines(subjects) {
 		if breakingHeader.MatchString(subject) {
@@ -139,7 +144,7 @@ func detectBump(rangeSpec string) (string, error) {
 		}
 	}
 
-	if strings.Contains(bodies, "BREAKING CHANGE") {
+	if breakingFooter.MatchString(bodies) {
 		return "major", nil
 	}
 

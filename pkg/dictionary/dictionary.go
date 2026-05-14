@@ -1,5 +1,7 @@
 package dictionary
 
+import "strings"
+
 // dictionary contains strings with specific spelling or capitalization.
 var dictionary = map[string]string{
 	"csharp":     "C#",
@@ -15,7 +17,7 @@ var normalizedLanguages = map[string]string{
 	"typescript": "ts",
 	"javascript": "js",
 	"csharp":     "cs",
-	"cURL":       "sh",
+	"curl":       "sh",
 }
 
 // Translate returns the translated string if it's present in the dictionary, the original otherwise.
@@ -29,7 +31,7 @@ func Translate(s string) string {
 
 // NormalizeLang returns the normalized language string if it's present, the original otherwise.
 func NormalizeLang(s string) string {
-	if word, ok := normalizedLanguages[s]; ok {
+	if word, ok := normalizedLanguages[strings.ToLower(s)]; ok {
 		return word
 	}
 

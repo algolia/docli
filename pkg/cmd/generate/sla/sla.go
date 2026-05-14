@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strings"
 	"text/template"
 
 	"github.com/MakeNowJust/heredoc"
@@ -132,7 +133,25 @@ func parseVersions(raw []byte) (Clients, error) {
 		return nil, fmt.Errorf("cannot parse JSON: %w", err)
 	}
 
+	if err := validateVersions(data); err != nil {
+		return nil, err
+	}
+
 	return data, nil
+}
+
+func validateVersions(data Clients) error {
+	for language, versions := range data {
+		for version := range versions {
+			if semver.IsValid("v"+version) && strings.Count(version, ".") == 2 {
+				continue
+			}
+
+			return fmt.Errorf("invalid version %q for %s", version, language)
+		}
+	}
+
+	return nil
 }
 
 // sortVersions sorts the version info in descending order.

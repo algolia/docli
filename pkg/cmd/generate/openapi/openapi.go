@@ -185,9 +185,13 @@ func getAPIData(
 ) ([]OperationData, error) {
 	var result []OperationData
 
+	if doc == nil || doc.Model.Paths == nil {
+		return nil, nil
+	}
+
 	count := 0
 
-	prefix := fmt.Sprintf("%s/%s", opts.OutputDirectory, opts.APIName)
+	prefix := filepath.Join(opts.OutputDirectory, opts.APIName)
 
 	for pathPairs := doc.Model.Paths.PathItems.First(); pathPairs != nil; pathPairs = pathPairs.Next() {
 		pathName := pathPairs.Key()
@@ -225,12 +229,17 @@ func buildOperationData(
 		return OperationData{}, fmt.Errorf("get ACL for %s %s: %w", verb, pathName, err)
 	}
 
+	operationID, err := utils.RequireOperationID(op.OperationId, verb, pathName)
+	if err != nil {
+		return OperationData{}, err
+	}
+
 	data := OperationData{
 		ACL:              utils.AclToString(acl),
 		APIPath:          pathName,
 		Description:      long,
 		InputFilename:    normalizePath(opts.InputFileName),
-		OutputFilename:   utils.GetOutputFilename(op),
+		OutputFilename:   utils.GetOutputFilenameForOperationID(operationID),
 		OutputPath:       prefix,
 		RequiresAdmin:    false,
 		ShortDescription: utils.StripMarkdown(short),

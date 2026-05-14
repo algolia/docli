@@ -1,7 +1,9 @@
 package snippets
 
 import (
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -179,5 +181,26 @@ func TestGenerateMarkdownSnippet(t *testing.T) {
 				t.Errorf("generateMarkdownSnippet(%v) =\n%q\nwant:\n%q", tt.snippet, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestValidateSnippetOutputPathsRejectsCollisions(t *testing.T) {
+	t.Parallel()
+
+	rawSnippets := NestedMap{
+		"search": {
+			"foo-bar": {"go": "one"},
+			"foo_bar": {"go": "two"},
+		},
+	}
+
+	err := validateSnippetOutputPaths(rawSnippets, "out")
+	if err == nil {
+		t.Fatal("expected collision error")
+	}
+
+	wantPath := filepath.Join("out", "search", "fooBar.mdx")
+	if !strings.Contains(err.Error(), wantPath) {
+		t.Fatalf("error = %q, want path %q", err, wantPath)
 	}
 }

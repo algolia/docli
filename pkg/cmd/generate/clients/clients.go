@@ -11,63 +11,12 @@ import (
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/algolia/docli/pkg/cmd/generate/utils"
-	"github.com/algolia/docli/pkg/dictionary"
 	"github.com/algolia/docli/pkg/output"
 	"github.com/algolia/docli/pkg/validate"
 	"github.com/pb33f/libopenapi"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 	"github.com/spf13/cobra"
 )
-
-// Options represents configuration options and CLI flags for this command.
-type Options struct {
-	APIName         string
-	InputFilename   string
-	OutputDirectory string
-}
-
-// ExternalDocs holds an externalDocs reference.
-type ExternalDocs struct {
-	Description string
-	URL         string
-}
-
-// OperationData represents relevant information about an API operation.
-type OperationData struct {
-	ACL              string
-	APIName          string
-	CodeSamples      []CodeSample
-	Deprecated       bool
-	Description      string
-	ExternalDocs     ExternalDocs
-	InputFilename    string
-	OutputFilename   string
-	OutputPath       string
-	OperationIDKebab string
-	Params           []Parameter
-	RequestBody      RequestBody
-	RequiresAdmin    bool
-	SeeAlso          bool
-	ShortDescription string
-	Summary          string
-}
-
-type CodeSample struct {
-	Lang   string
-	Label  string
-	Source string
-}
-
-type Parameter struct {
-	Name        string
-	Description string
-	Required    bool
-}
-
-type RequestBody struct {
-	Name        string
-	Description string
-}
 
 //go:embed method.mdx.tmpl
 var methodTemplate string
@@ -141,6 +90,9 @@ func runCommand(opts *Options, printer *output.Printer) error {
 
 	tmpl := template.Must(template.New("method").Funcs(template.FuncMap{
 		"frontmatterString": utils.QuoteFrontmatterString,
+		"mintFieldType":     mintFieldType,
+		"renderParamFields": renderParamFields,
+		"renderResponses":   renderResponses,
 		"trim":              strings.TrimSpace,
 	}).Parse(methodTemplate))
 
@@ -152,82 +104,113 @@ func runCommand(opts *Options, printer *output.Printer) error {
 }
 
 // getAPIData reads the OpenAPI spec and parses the operation data.
-//
-//nolint:funlen
 func getAPIData(
 	doc *libopenapi.DocumentModel[v3.Document],
 	opts *Options,
 ) ([]OperationData, error) {
 	var result []OperationData
 
-	count := 0
+	if doc == nil || doc.Model.Paths == nil {
+		return nil, nil
+	}
 
-	prefix := fmt.Sprintf("%s/%s", opts.OutputDirectory, opts.APIName)
+	prefix := filepath.Join(opts.OutputDirectory, opts.APIName)
 
 	for pathPairs := doc.Model.Paths.PathItems.First(); pathPairs != nil; pathPairs = pathPairs.Next() {
 		pathName := pathPairs.Key()
-		// Ignore custom HTTP requests
 		if pathName == "/{path}" {
 			continue
 		}
 
 		pathItem := pathPairs.Value()
-
 		for opPairs := pathItem.GetOperations().First(); opPairs != nil; opPairs = opPairs.Next() {
-			op := opPairs.Value()
-
-			acl, err := utils.GetACL(op)
+			data, err := buildClientOperationData(
+				opPairs.Key(),
+				pathName,
+				pathItem,
+				opPairs.Value(),
+				opts,
+				prefix,
+			)
 			if err != nil {
-				return nil, fmt.Errorf("get ACL for %s %s: %w", opPairs.Key(), pathName, err)
-			}
-
-			short, long := utils.SplitDescription(op.Description)
-			short = utils.StripMarkdown(short)
-
-			data := OperationData{
-				ACL:              utils.AclToString(acl),
-				APIName:          opts.APIName,
-				CodeSamples:      getCodeSamples(op),
-				Deprecated:       boolOrFalse(op.Deprecated),
-				Description:      long,
-				OutputFilename:   utils.GetOutputFilename(op),
-				OutputPath:       prefix,
-				OperationIDKebab: utils.ToKebabCase(op.OperationId),
-				Params:           getParameters(op),
-				RequiresAdmin:    false,
-				RequestBody:      getRequestBody(op),
-				ShortDescription: short,
-				Summary:          op.Summary,
-			}
-
-			if data.ACL == "`admin`" {
-				data.RequiresAdmin = true
-			}
-
-			if op.ExternalDocs != nil {
-				desc := strings.TrimSpace(op.ExternalDocs.Description)
-				data.ExternalDocs.Description = strings.TrimSuffix(desc, ".")
-				data.ExternalDocs.URL = op.ExternalDocs.URL
-			}
-
-			if data.ExternalDocs.Description != "" && data.ExternalDocs.URL != "" {
-				data.SeeAlso = true
+				return nil, err
 			}
 
 			result = append(result, data)
-			count++
 		}
 	}
 
 	return result, nil
 }
 
-// writeAPIData writes the OpenAPI data to MDX files.
-func writeAPIData(
-	data []OperationData,
-	template *template.Template,
-	printer *output.Printer,
-) error {
+func buildClientOperationData(
+	verb string,
+	pathName string,
+	pathItem *v3.PathItem,
+	op *v3.Operation,
+	opts *Options,
+	prefix string,
+) (OperationData, error) {
+	acl, err := utils.GetACL(op)
+	if err != nil {
+		return OperationData{}, fmt.Errorf("get ACL for %s %s: %w", verb, pathName, err)
+	}
+
+	operationID, err := utils.RequireOperationID(op.OperationId, verb, pathName)
+	if err != nil {
+		return OperationData{}, err
+	}
+
+	short, long := utils.SplitDescription(op.Description)
+	short = utils.StripMarkdown(short)
+
+	params, err := getParameters(pathItem, op)
+	if err != nil {
+		return OperationData{}, fmt.Errorf("get parameters for %s %s: %w", verb, pathName, err)
+	}
+
+	responses, err := getResponses(op)
+	if err != nil {
+		return OperationData{}, fmt.Errorf("get responses for %s %s: %w", verb, pathName, err)
+	}
+
+	data := OperationData{
+		ACL:              utils.AclToString(acl),
+		APIName:          opts.APIName,
+		CodeSamples:      getCodeSamples(op),
+		Deprecated:       boolOrFalse(op.Deprecated),
+		Description:      long,
+		OutputFilename:   utils.GetOutputFilenameForOperationID(operationID),
+		OutputPath:       prefix,
+		OperationIDs:     utils.OperationIDVariants(operationID),
+		OperationIDKebab: utils.ToKebabCase(operationID),
+		Params:           sortParameters(pruneParameters(params)),
+		Responses:        sortOperationResponses(responses),
+		ShortDescription: short,
+		Summary:          op.Summary,
+	}
+
+	if data.ACL == "`admin`" {
+		data.RequiresAdmin = true
+	}
+
+	applyExternalDocs(&data, op)
+
+	return data, nil
+}
+
+func applyExternalDocs(data *OperationData, op *v3.Operation) {
+	if data == nil || op == nil || op.ExternalDocs == nil {
+		return
+	}
+
+	desc := strings.TrimSpace(op.ExternalDocs.Description)
+	data.ExternalDocs.Description = strings.TrimSuffix(desc, ".")
+	data.ExternalDocs.URL = op.ExternalDocs.URL
+	data.SeeAlso = data.ExternalDocs.Description != "" && data.ExternalDocs.URL != ""
+}
+
+func writeAPIData(data []OperationData, tmpl *template.Template, printer *output.Printer) error {
 	for _, item := range data {
 		if !printer.IsDryRun() {
 			if err := os.MkdirAll(item.OutputPath, 0o700); err != nil {
@@ -236,69 +219,12 @@ func writeAPIData(
 		}
 
 		fullPath := filepath.Join(item.OutputPath, item.OutputFilename)
-
 		if err := printer.WriteFile(fullPath, func(w io.Writer) error {
-			return template.Execute(w, item)
+			return tmpl.Execute(w, item)
 		}); err != nil {
 			return err
 		}
 	}
 
 	return nil
-}
-
-func getCodeSamples(op *v3.Operation) []CodeSample {
-	node, ok := op.Extensions.Get("x-codeSamples")
-	// Operations can be without code samples
-	if !ok {
-		return nil
-	}
-
-	var result []CodeSample
-
-	for _, child := range node.Content {
-		var c CodeSample
-
-		child.Decode(&c)
-
-		c.Lang = dictionary.NormalizeLang(c.Lang)
-
-		if strings.ToLower(c.Label) != "curl" {
-			result = append(result, c)
-		}
-	}
-
-	return result
-}
-
-func getParameters(op *v3.Operation) []Parameter {
-	var result []Parameter
-
-	for _, p := range op.Parameters {
-		param := Parameter{
-			Name:        p.Name,
-			Description: p.Description,
-		}
-		if p.Required != nil {
-			param.Required = *p.Required
-		}
-
-		result = append(result, param)
-	}
-
-	return result
-}
-
-func getRequestBody(op *v3.Operation) RequestBody {
-	return RequestBody{
-		Description: "Unknown",
-	}
-}
-
-func boolOrFalse(val *bool) bool {
-	if val == nil {
-		return false
-	} else {
-		return *val
-	}
 }
