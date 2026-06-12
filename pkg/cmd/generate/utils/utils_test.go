@@ -347,6 +347,162 @@ func mockOp(extensions *yaml.Node) v3.Operation {
 	return op
 }
 
+func mockApi(extensions *yaml.Node) v3.Document {
+	doc := v3.Document{}
+	doc.Extensions = orderedmap.New[string, *yaml.Node]()
+	doc.Extensions.Set("x-beta", extensions)
+
+	return doc
+}
+
+func mockBetaOp(extensions *yaml.Node) v3.Operation {
+	op := v3.Operation{}
+	op.Extensions = orderedmap.New[string, *yaml.Node]()
+	op.Extensions.Set("x-beta", extensions)
+
+	return op
+}
+
+func TestIsBetaAPI(t *testing.T) {
+	tests := []struct {
+		name        string
+		extensions  *yaml.Node
+		expected    bool
+		expectError bool
+		errorSubstr string
+	}{
+		{
+			name: "Has x-beta: true on root",
+			extensions: &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Tag:   "!!bool",
+				Value: "true",
+			},
+			expected: true,
+		},
+		{
+			name: "Has x-beta: false on root",
+			extensions: &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Tag:   "!!bool",
+				Value: "false",
+			},
+			expected: false,
+		},
+		{
+			name: "Extension is a sequence node",
+			extensions: &yaml.Node{
+				Kind: yaml.SequenceNode,
+			},
+			expected:    false,
+			expectError: true,
+			errorSubstr: "expected a scalar node",
+		},
+		{
+			name: "Extension is a string scalar",
+			extensions: &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Tag:   "!!str",
+				Value: "true",
+			},
+			expected:    false,
+			expectError: true,
+			errorSubstr: "expected a boolean node",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			doc := mockApi(tt.extensions)
+
+			got, err := IsBetaAPI(&doc)
+			if !tt.expectError && err != nil {
+				t.Fatalf("unexpected error %v", err)
+			}
+
+			if tt.expectError {
+				if err == nil {
+					t.Fatal("error expected, but there was none")
+				}
+
+				if !strings.Contains(err.Error(), tt.errorSubstr) {
+					t.Errorf("expected error substring %s, got %s", tt.errorSubstr, err.Error())
+				}
+			}
+
+			if got != tt.expected {
+				t.Errorf("expected %t, got %t", tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestIsBetaOperation(t *testing.T) {
+	tests := []struct {
+		name        string
+		extensions  *yaml.Node
+		expected    bool
+		expectError bool
+		errorSubstr string
+	}{
+		{
+			name: "Has x-beta: true on operation",
+			extensions: &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Tag:   "!!bool",
+				Value: "true",
+			},
+			expected: true,
+		},
+		{
+			name: "Has x-beta: false on operation",
+			extensions: &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Tag:   "!!bool",
+				Value: "false",
+			},
+			expected: false,
+		},
+		{
+			name: "Extension is a mapping node",
+			extensions: &yaml.Node{
+				Kind: yaml.MappingNode,
+			},
+			expectError: true,
+			errorSubstr: "expected a scalar node",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			op := mockBetaOp(tt.extensions)
+
+			got, err := IsBetaOperation(&op)
+			if !tt.expectError && err != nil {
+				t.Fatalf("unexpected error %v", err)
+			}
+
+			if tt.expectError {
+				if err == nil {
+					t.Fatal("error expected, but there was none")
+				}
+
+				if !strings.Contains(err.Error(), tt.errorSubstr) {
+					t.Errorf("expected error substring %s, got %s", tt.errorSubstr, err.Error())
+				}
+			}
+
+			if got != tt.expected {
+				t.Errorf("expected %t, got %t", tt.expected, got)
+			}
+		})
+	}
+}
+
 func TestGetAcl(t *testing.T) {
 	tests := []struct {
 		name        string
