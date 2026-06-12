@@ -205,7 +205,14 @@ func getAPIData(
 		pathItem := pathPairs.Value()
 
 		for opPairs := pathItem.GetOperations().First(); opPairs != nil; opPairs = opPairs.Next() {
-			data, err := buildOperationData(opPairs.Key(), pathName, opPairs.Value(), opts, prefix, beta)
+			data, err := buildOperationData(
+				opPairs.Key(),
+				pathName,
+				opPairs.Value(),
+				opts,
+				prefix,
+				beta,
+			)
 			if err != nil {
 				return nil, err
 			}
