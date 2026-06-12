@@ -26,6 +26,7 @@ paths:
         Use the [API key](https://algolia.com) endpoint with **filters:active**.
 
         This body keeps [markdown](https://algolia.com/doc) and **details** intact.
+      x-beta: true
       x-acl:
         - search
 `)
@@ -78,6 +79,8 @@ paths:
 	assertFrontmatterDescription(t, frontmatter, "Use the API key endpoint with filters:active.")
 
 	assertRenderedContains(t, rendered.String(), []string{
+		`import Beta from "/snippets/beta.mdx";`,
+		"<Beta />",
 		`description: "Use the API key endpoint with filters:active."`,
 		"This body keeps [markdown](https://algolia.com/doc) and **details** intact.",
 		"**Required ACL:** `search`",

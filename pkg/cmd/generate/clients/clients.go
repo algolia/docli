@@ -36,6 +36,7 @@ type ExternalDocs struct {
 type OperationData struct {
 	ACL              string
 	APIName          string
+	Beta             bool
 	CodeSamples      []CodeSample
 	Deprecated       bool
 	Description      string
@@ -162,6 +163,11 @@ func getAPIData(
 
 	count := 0
 
+	beta, err := utils.IsBetaAPI(&doc.Model)
+	if err != nil {
+		return nil, fmt.Errorf("get beta status: %w", err)
+	}
+
 	prefix := fmt.Sprintf("%s/%s", opts.OutputDirectory, opts.APIName)
 
 	for pathPairs := doc.Model.Paths.PathItems.First(); pathPairs != nil; pathPairs = pathPairs.Next() {
@@ -176,6 +182,11 @@ func getAPIData(
 		for opPairs := pathItem.GetOperations().First(); opPairs != nil; opPairs = opPairs.Next() {
 			op := opPairs.Value()
 
+			opBeta, err := utils.IsBetaOperation(op)
+			if err != nil {
+				return nil, fmt.Errorf("get beta status for %s %s: %w", opPairs.Key(), pathName, err)
+			}
+
 			acl, err := utils.GetACL(op)
 			if err != nil {
 				return nil, fmt.Errorf("get ACL for %s %s: %w", opPairs.Key(), pathName, err)
@@ -187,6 +198,7 @@ func getAPIData(
 			data := OperationData{
 				ACL:              utils.AclToString(acl),
 				APIName:          opts.APIName,
+				Beta:             beta || opBeta,
 				CodeSamples:      getCodeSamples(op),
 				Deprecated:       boolOrFalse(op.Deprecated),
 				Description:      long,

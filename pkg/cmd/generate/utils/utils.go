@@ -54,6 +54,47 @@ func GetAPIName(path string) string {
 	return strings.TrimSuffix(base, filepath.Ext(base))
 }
 
+// IsBetaAPI returns true if the root document has an `x-beta: true` extension.
+func IsBetaAPI(doc *v3.Document) (bool, error) {
+	if doc.Extensions == nil {
+		return false, nil
+	}
+
+	node, ok := doc.Extensions.Get("x-beta")
+	if !ok {
+		return false, nil
+	}
+
+	return parseBetaNode(node)
+}
+
+// IsBetaOperation returns true if the operation has an `x-beta: true` extension.
+func IsBetaOperation(op *v3.Operation) (bool, error) {
+	if op.Extensions == nil {
+		return false, nil
+	}
+
+	node, ok := op.Extensions.Get("x-beta")
+	if !ok {
+		return false, nil
+	}
+
+	return parseBetaNode(node)
+}
+
+func parseBetaNode(node *yaml.Node) (bool, error) {
+	if node.Kind != yaml.ScalarNode {
+		return false, fmt.Errorf("expected a scalar node, got kind %d", node.Kind)
+	}
+
+	var result bool
+	if err := node.Decode(&result); err != nil {
+		return false, fmt.Errorf("expected a boolean node: %w", err)
+	}
+
+	return result, nil
+}
+
 // GetACL returns the ACL required to perform the given operation.
 func GetACL(op *v3.Operation) ([]string, error) {
 	node, ok := op.Extensions.Get("x-acl")

@@ -4,6 +4,12 @@ description: {{ frontmatterString .ShortDescription }}
 openapi: {{ .InputFilename }} {{ .Verb }} {{ .APIPath }}
 public: true
 ---
+{{- if .Beta }}
+
+import Beta from "/snippets/beta.mdx";
+
+<Beta />
+{{- end }}
 {{- if .Description }}
 
 {{ .Description }}
