@@ -36,6 +36,7 @@ type ExternalDocs struct {
 type OperationData struct {
 	ACL              string
 	APIName          string
+	Beta             bool
 	CodeSamples      []CodeSample
 	Deprecated       bool
 	Description      string
@@ -152,8 +153,6 @@ func runCommand(opts *Options, printer *output.Printer) error {
 }
 
 // getAPIData reads the OpenAPI spec and parses the operation data.
-//
-//nolint:funlen
 func getAPIData(
 	doc *libopenapi.DocumentModel[v3.Document],
 	opts *Options,
@@ -161,6 +160,11 @@ func getAPIData(
 	var result []OperationData
 
 	count := 0
+
+	beta, err := utils.IsBetaAPI(&doc.Model)
+	if err != nil {
+		return nil, fmt.Errorf("get beta status: %w", err)
+	}
 
 	prefix := fmt.Sprintf("%s/%s", opts.OutputDirectory, opts.APIName)
 
@@ -174,44 +178,16 @@ func getAPIData(
 		pathItem := pathPairs.Value()
 
 		for opPairs := pathItem.GetOperations().First(); opPairs != nil; opPairs = opPairs.Next() {
-			op := opPairs.Value()
-
-			acl, err := utils.GetACL(op)
+			data, err := buildOperationData(
+				opPairs.Key(),
+				pathName,
+				opPairs.Value(),
+				opts,
+				prefix,
+				beta,
+			)
 			if err != nil {
-				return nil, fmt.Errorf("get ACL for %s %s: %w", opPairs.Key(), pathName, err)
-			}
-
-			short, long := utils.SplitDescription(op.Description)
-			short = utils.StripMarkdown(short)
-
-			data := OperationData{
-				ACL:              utils.AclToString(acl),
-				APIName:          opts.APIName,
-				CodeSamples:      getCodeSamples(op),
-				Deprecated:       boolOrFalse(op.Deprecated),
-				Description:      long,
-				OutputFilename:   utils.GetOutputFilename(op),
-				OutputPath:       prefix,
-				OperationIDKebab: utils.ToKebabCase(op.OperationId),
-				Params:           getParameters(op),
-				RequiresAdmin:    false,
-				RequestBody:      getRequestBody(op),
-				ShortDescription: short,
-				Summary:          op.Summary,
-			}
-
-			if data.ACL == "`admin`" {
-				data.RequiresAdmin = true
-			}
-
-			if op.ExternalDocs != nil {
-				desc := strings.TrimSpace(op.ExternalDocs.Description)
-				data.ExternalDocs.Description = strings.TrimSuffix(desc, ".")
-				data.ExternalDocs.URL = op.ExternalDocs.URL
-			}
-
-			if data.ExternalDocs.Description != "" && data.ExternalDocs.URL != "" {
-				data.SeeAlso = true
+				return nil, err
 			}
 
 			result = append(result, data)
@@ -220,6 +196,60 @@ func getAPIData(
 	}
 
 	return result, nil
+}
+
+func buildOperationData(
+	verb, pathName string,
+	op *v3.Operation,
+	opts *Options,
+	prefix string,
+	beta bool,
+) (OperationData, error) {
+	opBeta, err := utils.IsBetaOperation(op)
+	if err != nil {
+		return OperationData{}, fmt.Errorf("get beta status for %s %s: %w", verb, pathName, err)
+	}
+
+	acl, err := utils.GetACL(op)
+	if err != nil {
+		return OperationData{}, fmt.Errorf("get ACL for %s %s: %w", verb, pathName, err)
+	}
+
+	short, long := utils.SplitDescription(op.Description)
+	short = utils.StripMarkdown(short)
+
+	data := OperationData{
+		ACL:              utils.AclToString(acl),
+		APIName:          opts.APIName,
+		Beta:             beta || opBeta,
+		CodeSamples:      getCodeSamples(op),
+		Deprecated:       boolOrFalse(op.Deprecated),
+		Description:      long,
+		OutputFilename:   utils.GetOutputFilename(op),
+		OutputPath:       prefix,
+		OperationIDKebab: utils.ToKebabCase(op.OperationId),
+		Params:           getParameters(op),
+		RequiresAdmin:    false,
+		RequestBody:      getRequestBody(op),
+		ShortDescription: short,
+		Summary:          op.Summary,
+	}
+
+	if data.ACL == "`admin`" {
+		data.RequiresAdmin = true
+	}
+
+	if op.ExternalDocs != nil {
+		desc := strings.TrimSpace(op.ExternalDocs.Description)
+		data.ExternalDocs.Description = strings.TrimSuffix(desc, ".")
+		data.ExternalDocs.URL = op.ExternalDocs.URL
+	}
+
+	if data.ExternalDocs.Description != "" && data.ExternalDocs.URL != "" {
+		data.SeeAlso = true
+	}
+
+	return data, nil
 }
 
 // writeAPIData writes the OpenAPI data to MDX files.

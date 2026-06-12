@@ -3,6 +3,12 @@ title: {{ .Summary }}
 description: {{ frontmatterString .ShortDescription }}
 public: true
 ---
+{{- if .Beta }}
+
+import Beta from "/snippets/beta.mdx";
+
+<Beta />
+{{- end }}
 {{- if .Deprecated }}
 
 <Warning>This method is **deprecated.**</Warning>

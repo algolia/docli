@@ -44,6 +44,7 @@ type OverviewData struct {
 type OperationData struct {
 	ACL              string
 	APIPath          string
+	Beta             bool
 	Description      string
 	ExternalDocs     ExternalDocs
 	InputFilename    string
@@ -187,6 +188,11 @@ func getAPIData(
 
 	count := 0
 
+	beta, err := utils.IsBetaAPI(&doc.Model)
+	if err != nil {
+		return nil, fmt.Errorf("get beta status: %w", err)
+	}
+
 	prefix := fmt.Sprintf("%s/%s", opts.OutputDirectory, opts.APIName)
 
 	for pathPairs := doc.Model.Paths.PathItems.First(); pathPairs != nil; pathPairs = pathPairs.Next() {
@@ -199,7 +205,14 @@ func getAPIData(
 		pathItem := pathPairs.Value()
 
 		for opPairs := pathItem.GetOperations().First(); opPairs != nil; opPairs = opPairs.Next() {
-			data, err := buildOperationData(opPairs.Key(), pathName, opPairs.Value(), opts, prefix)
+			data, err := buildOperationData(
+				opPairs.Key(),
+				pathName,
+				opPairs.Value(),
+				opts,
+				prefix,
+				beta,
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -217,6 +230,7 @@ func buildOperationData(
 	op *v3.Operation,
 	opts *Options,
 	prefix string,
+	beta bool,
 ) (OperationData, error) {
 	short, long := utils.SplitDescription(op.Description)
 
@@ -225,9 +239,15 @@ func buildOperationData(
 		return OperationData{}, fmt.Errorf("get ACL for %s %s: %w", verb, pathName, err)
 	}
 
+	opBeta, err := utils.IsBetaOperation(op)
+	if err != nil {
+		return OperationData{}, fmt.Errorf("get beta status for %s %s: %w", verb, pathName, err)
+	}
+
 	data := OperationData{
 		ACL:              utils.AclToString(acl),
 		APIPath:          pathName,
+		Beta:             beta || opBeta,
 		Description:      long,
 		InputFilename:    normalizePath(opts.InputFileName),
 		OutputFilename:   utils.GetOutputFilename(op),

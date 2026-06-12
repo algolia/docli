@@ -26,6 +26,7 @@ paths:
         Retrieve the [API key](https://algolia.com) with **filters:active**.
 
         Use this endpoint to fetch a key by its value with **sample** output.
+      x-beta: true
       x-acl:
         - search
 `)
@@ -75,6 +76,8 @@ paths:
 	assertFrontmatterDescription(t, frontmatter, "Retrieve the API key with filters:active.")
 
 	assertRenderedContains(t, rendered, []string{
+		`import Beta from "/snippets/beta.mdx";`,
+		"<Beta />",
 		"title: Get an API key",
 		`description: "Retrieve the API key with filters:active."`,
 		"Use this endpoint to fetch a key by its value with **sample** output.",
