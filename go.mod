@@ -7,7 +7,7 @@ require (
 	github.com/pb33f/libopenapi v0.38.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
-	go.yaml.in/yaml/v4 v4.0.0-rc.5
+	go.yaml.in/yaml/v4 v4.0.0-rc.6
 	golang.org/x/mod v0.37.0
 )
 
