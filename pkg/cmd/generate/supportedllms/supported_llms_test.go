@@ -81,7 +81,7 @@ func TestRunGeneratesExpectedSnippets(t *testing.T) {
 	}
 
 	for name, want := range wantFiles {
-		got, err := os.ReadFile(filepath.Join(dir, name))
+		got, err := os.ReadFile(filepath.Join(dir, filepath.Base(name)))
 		if err != nil {
 			t.Errorf("read %s: %v", name, err)
 
@@ -94,7 +94,7 @@ func TestRunGeneratesExpectedSnippets(t *testing.T) {
 	}
 
 	for _, name := range []string{"azure_openai.mdx", "openai_compatible.mdx"} {
-		if _, err := os.Stat(filepath.Join(dir, name)); !os.IsNotExist(err) {
+		if _, err := os.Stat(filepath.Join(dir, filepath.Base(name))); !os.IsNotExist(err) {
 			t.Errorf("expected %s not to be generated", name)
 		}
 	}
@@ -220,6 +220,32 @@ func TestLoadEnvFileMissing(t *testing.T) {
 
 	if err := loadEnvFile(missing, true, newTestPrinter(t)); err == nil {
 		t.Error("expected error for missing required env file")
+	}
+}
+
+func TestValidateRequestURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		url     string
+		wantErr bool
+	}{
+		{name: "algolia host", url: "https://APP.algolia.net/x", wantErr: false},
+		{name: "bare algolia host", url: "https://algolia.net/x", wantErr: false},
+		{name: "loopback ip", url: "http://127.0.0.1:8080/x", wantErr: false},
+		{name: "localhost", url: "http://localhost:8080/x", wantErr: false},
+		{name: "http to algolia rejected", url: "http://APP.algolia.net/x", wantErr: true},
+		{name: "foreign host rejected", url: "https://evil.example.com/x", wantErr: true},
+		{name: "suffix spoof rejected", url: "https://algolia.net.evil.com/x", wantErr: true},
+		{name: "non-http scheme rejected", url: "file:///etc/passwd", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateRequestURL(tt.url)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("validateRequestURL(%q) err = %v, wantErr %v", tt.url, err, tt.wantErr)
+			}
+		})
 	}
 }
 
