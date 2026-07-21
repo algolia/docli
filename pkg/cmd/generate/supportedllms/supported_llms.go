@@ -6,13 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/MakeNowJust/heredoc"
@@ -117,18 +114,14 @@ func runCommand(ctx context.Context, opts *Options, printer *output.Printer) err
 		return err
 	}
 
-	requestURL := opts.URL
-	if requestURL == "" {
-		requestURL = fmt.Sprintf("https://%s.algolia.net%s", appID, modelsPath)
+	url := opts.URL
+	if url == "" {
+		url = fmt.Sprintf("https://%s.algolia.net%s", appID, modelsPath)
 	}
 
-	if err := validateRequestURL(requestURL); err != nil {
-		return err
-	}
+	printer.Infof("Fetching supported LLMs from: %s\n", url)
 
-	printer.Infof("Fetching supported LLMs from: %s\n", requestURL)
-
-	data, err := fetchModels(ctx, requestURL, appID, apiKey)
+	data, err := fetchModels(ctx, url, appID, apiKey)
 	if err != nil {
 		return fmt.Errorf("fetch supported LLMs: %w", err)
 	}
@@ -189,46 +182,9 @@ func validateOptions(opts *Options, appID, apiKey string) error {
 	return validate.OutputDir(opts.OutputDir, "output directory")
 }
 
-// validateRequestURL restricts requests to the known Agent Studio host to
-// guard against SSRF. Loopback addresses are allowed so the command can be
-// pointed at a local test server through --url.
-func validateRequestURL(raw string) error {
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return fmt.Errorf("invalid API URL %q: %w", raw, err)
-	}
-
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return fmt.Errorf("API URL %q must use http or https", raw)
-	}
-
-	host := parsed.Hostname()
-
-	if host == "localhost" {
-		return nil
-	}
-
-	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
-		return nil
-	}
-
-	if parsed.Scheme != "https" {
-		return fmt.Errorf("API URL %q must use https", raw)
-	}
-
-	if host != "algolia.net" && !strings.HasSuffix(host, ".algolia.net") {
-		return fmt.Errorf("API URL host %q is not an algolia.net host", host)
-	}
-
-	return nil
-}
-
 // fetchModels requests the supported models per provider from the API.
-// The URL is validated by validateRequestURL before this call.
-func fetchModels(ctx context.Context, requestURL, appID, apiKey string) (ProviderModels, error) {
-	// #nosec G107 -- requestURL is validated by validateRequestURL and
-	// constrained to an algolia.net host (or loopback for tests).
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+func fetchModels(ctx context.Context, url, appID, apiKey string) (ProviderModels, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +201,7 @@ func fetchModels(ctx context.Context, requestURL, appID, apiKey string) (Provide
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("request to %s failed with status %s", requestURL, res.Status)
+		return nil, fmt.Errorf("request to %s failed with status %s", url, res.Status)
 	}
 
 	var data ProviderModels
