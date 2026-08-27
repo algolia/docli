@@ -1,0 +1,22 @@
+---
+# Codacy configuration for algolia/docli.
+#
+# docli is a local developer CLI: it runs on a maintainer's machine with the
+# maintainer's own arguments and credentials. Several of Codacy's default
+# security rules assume a server processing untrusted input, so they report
+# findings that don't apply here (for example, a URL or output path taken from
+# a command-line flag).
+
+exclude_paths:
+  # Test files construct paths from t.TempDir() and literal fixture names, and
+  # repeat table-driven setup on purpose. Both trip security and duplication
+  # rules without indicating a real problem.
+  - "**/*_test.go"
+  # Generated and vendored assets.
+  - "docli"
+  - "dist/**"
+
+engines:
+  duplication:
+    exclude_paths:
+      - "**/*_test.go"

@@ -67,7 +67,7 @@ See the individual subcommands to learn what content you can generate.
 
 **Aliases:** `gen`, `g`
 
-**Subcommands:** `cdn`, `clients`, `guides`, `openapi`, `sla`, `snippets`
+**Subcommands:** `cdn`, `clients`, `guides`, `openapi`, `sla`, `snippets`, `supported-llms`
 
 #### `docli generate cdn`
 
@@ -280,6 +280,55 @@ docli gen snippets specs/search-snippets.json -o openapi-snippets/search
 `-o, --output string`  Output directory for generated MDX files (default: `out`)
 
 `-q, --quiet`  Suppress non-error output
+
+`-v, --verbose`  Enable verbose output
+
+
+#### `docli generate supported-llms`
+
+```sh
+docli generate supported-llms [flags]
+```
+
+Generate snippets of supported LLMs per provider.
+
+This command fetches the supported LLMs per provider from the
+Agent Studio API and generates one MDX snippet file per provider,
+each listing the supported model IDs.
+
+The snippets are meant to be included in the hand-written
+LLM providers guide so the model lists stay up to date.
+A snippet is generated for the following providers:
+anthropic, openai, google_genai, and deepseek.
+azure_openai and openai_compatible are skipped because they
+don't have a fixed list of models.
+
+The Algolia credentials must be provided through the
+ALGOLIA_APPLICATION_ID and ALGOLIA_API_KEY environment variables,
+or through a .env file (default: .env) with those variables.
+Existing environment variables take precedence over the .env file.
+
+**Examples**
+
+```sh
+# Run from the root of algolia/docs-new
+ALGOLIA_APPLICATION_ID=… ALGOLIA_API_KEY=… \
+docli gen supported-llms -o snippets/agent-studio
+```
+
+**Flags**
+
+`--dry-run`  Preview actions without writing files
+
+`--env-file string`  Path to a .env file with the Algolia credentials (default: `.env`)
+
+`-h, --help`  Help for this command
+
+`-o, --output string`  Output directory for the generated snippet files (default: `.`)
+
+`-q, --quiet`  Suppress non-error output
+
+`--url string`  Override the API URL (defaults to the Agent Studio models endpoint)
 
 `-v, --verbose`  Enable verbose output
 
