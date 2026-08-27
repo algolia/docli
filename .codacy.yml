@@ -17,13 +17,6 @@ exclude_paths:
   - "dist/**"
 
 engines:
-  # Go security linter. Its file- and URL-from-variable rules (G107, G304) fire
-  # on every command that accepts a path or endpoint flag, which is the normal
-  # interface of this tool.
-  gosec:
-    enabled: true
-    exclude_paths:
-      - "pkg/cmd/**"
   duplication:
     exclude_paths:
       - "**/*_test.go"

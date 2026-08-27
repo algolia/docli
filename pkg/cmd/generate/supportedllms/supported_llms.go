@@ -184,6 +184,9 @@ func validateOptions(opts *Options, appID, apiKey string) error {
 
 // fetchModels requests the supported models per provider from the API.
 func fetchModels(ctx context.Context, url, appID, apiKey string) (ProviderModels, error) {
+	// The URL is either derived from the Algolia application ID or set by the
+	// operator through --url, so it isn't attacker-controlled input.
+	// nosemgrep
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
