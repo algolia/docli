@@ -1,6 +1,6 @@
 module github.com/algolia/docli
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
@@ -9,7 +9,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	go.yaml.in/yaml/v4 v4.0.0-rc.6
-	golang.org/x/mod v0.40.0
+	golang.org/x/mod v0.41.0
 )
 
 require (
