@@ -7,7 +7,7 @@ import (
 	"text/template"
 
 	"github.com/algolia/docli/pkg/cmd/generate/utils"
-	"go.yaml.in/yaml/v4"
+	"github.com/pb33f/go-yaml"
 )
 
 func TestGetAPIDataIncludesOperationDescriptionsInStubTemplate(t *testing.T) {
