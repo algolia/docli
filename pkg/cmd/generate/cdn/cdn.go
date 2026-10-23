@@ -19,8 +19,8 @@ import (
 	"github.com/MakeNowJust/heredoc"
 	"github.com/algolia/docli/pkg/output"
 	"github.com/algolia/docli/pkg/validate"
+	"github.com/pb33f/go-yaml"
 	"github.com/spf13/cobra"
-	"go.yaml.in/yaml/v4"
 )
 
 // Options represents the options and flags for this command.
