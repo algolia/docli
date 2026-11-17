@@ -298,10 +298,9 @@ each listing the supported model IDs.
 
 The snippets are meant to be included in the hand-written
 LLM providers guide so the model lists stay up to date.
-A snippet is generated for the following providers:
-anthropic, openai, google_genai, and deepseek.
-azure_openai and openai_compatible are skipped because they
-don't have a fixed list of models.
+A snippet is generated for every provider the API returns,
+except azure_openai and openai_compatible, which are skipped
+because they don't have a fixed list of models.
 
 The Algolia credentials must be provided through the
 ALGOLIA_APPLICATION_ID and ALGOLIA_API_KEY environment variables,
