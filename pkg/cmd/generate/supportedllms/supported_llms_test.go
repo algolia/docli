@@ -54,6 +54,8 @@ func TestRunGeneratesExpectedSnippets(t *testing.T) {
 		"openai": ["gpt-5.6", "gpt-4.1"],
 		"google_genai": ["gemini-3.5-flash"],
 		"deepseek": ["deepseek-chat"],
+		"new_provider": ["new-model"],
+		"empty_provider": [],
 		"azure_openai": ["gpt-5", "gpt-4.1"],
 		"openai_compatible": []
 	}`
@@ -72,8 +74,10 @@ func TestRunGeneratesExpectedSnippets(t *testing.T) {
 		t.Fatalf("runCommand: %v", err)
 	}
 
-	// deepseek is generated; azure_openai and openai_compatible are not.
+	// Every provider with models is generated, including new_provider, which
+	// the code doesn't know about. Skipped and empty providers are not.
 	wantFiles := map[string]string{
+		"new_provider.mdx": "- `new-model`\n",
 		"anthropic.mdx":    "- `claude-opus-4-8`\n- `claude-sonnet-5`\n",
 		"openai.mdx":       "- `gpt-5.6`\n- `gpt-4.1`\n",
 		"google_genai.mdx": "- `gemini-3.5-flash`\n",
@@ -93,7 +97,7 @@ func TestRunGeneratesExpectedSnippets(t *testing.T) {
 		}
 	}
 
-	for _, name := range []string{"azure_openai.mdx", "openai_compatible.mdx"} {
+	for _, name := range []string{"azure_openai.mdx", "openai_compatible.mdx", "empty_provider.mdx"} {
 		if _, err := os.Stat(filepath.Join(dir, name)); !os.IsNotExist(err) {
 			t.Errorf("expected %s not to be generated", name)
 		}

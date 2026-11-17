@@ -26,15 +26,14 @@ const (
 	defaultTimeout = 10 * time.Second
 )
 
-// generatedProviders lists the provider slugs for which a model snippet is
-// generated, in output order. Providers not listed here are skipped on purpose:
-// azure_openai documents "any deployed model" rather than a fixed list, and
-// openai_compatible has no fixed model list.
-var generatedProviders = []string{
-	"anthropic",
-	"openai",
-	"google_genai",
-	"deepseek",
+// skippedProviders lists the provider slugs for which no model snippet is
+// generated. Every other provider returned by the API gets one, so a newly
+// supported provider is picked up without a code change. azure_openai documents
+// "any deployed model" rather than a fixed list, and openai_compatible has no
+// fixed model list.
+var skippedProviders = map[string]struct{}{
+	"azure_openai":      {},
+	"openai_compatible": {},
 }
 
 // Options represents the options and flags for this command.
@@ -65,10 +64,9 @@ func NewCommand() *cobra.Command {
 
 			The snippets are meant to be included in the hand-written
 			LLM providers guide so the model lists stay up to date.
-			A snippet is generated for the following providers:
-			anthropic, openai, google_genai, and deepseek.
-			azure_openai and openai_compatible are skipped because they
-			don't have a fixed list of models.
+			A snippet is generated for every provider the API returns,
+			except azure_openai and openai_compatible, which are skipped
+			because they don't have a fixed list of models.
 
 			The Algolia credentials must be provided through the
 			ALGOLIA_APPLICATION_ID and ALGOLIA_API_KEY environment variables,
@@ -126,15 +124,13 @@ func runCommand(ctx context.Context, opts *Options, printer *output.Printer) err
 		return fmt.Errorf("fetch supported LLMs: %w", err)
 	}
 
-	warnUngeneratedProviders(data, printer)
-
 	if !printer.IsDryRun() {
 		if err = os.MkdirAll(opts.OutputDir, 0o700); err != nil {
 			return fmt.Errorf("create output directory %s: %w", opts.OutputDir, err)
 		}
 	}
 
-	for _, slug := range generatedProviders {
+	for _, slug := range generatedProviders(data, printer) {
 		if err = writeSnippet(opts.OutputDir, slug, data[slug], printer); err != nil {
 			return err
 		}
@@ -215,33 +211,24 @@ func fetchModels(ctx context.Context, url, appID, apiKey string) (ProviderModels
 	return data, nil
 }
 
-// warnUngeneratedProviders logs any provider returned by the API that isn't in
-// the generated set, so a newly supported provider doesn't go unnoticed.
-func warnUngeneratedProviders(data ProviderModels, printer *output.Printer) {
-	generated := make(map[string]struct{}, len(generatedProviders))
-	for _, slug := range generatedProviders {
-		generated[slug] = struct{}{}
-	}
+// generatedProviders returns the provider slugs to generate a snippet for, in
+// alphabetical order. Skipped providers are logged in verbose mode.
+func generatedProviders(data ProviderModels, printer *output.Printer) []string {
+	slugs := make([]string, 0, len(data))
 
-	extra := make([]string, 0)
+	for slug := range data {
+		if _, skip := skippedProviders[slug]; skip {
+			printer.Verbosef("Skipping provider %q: no fixed list of models\n", slug)
 
-	for slug, models := range data {
-		if _, ok := generated[slug]; ok {
 			continue
 		}
 
-		if len(models) == 0 {
-			continue
-		}
-
-		extra = append(extra, slug)
+		slugs = append(slugs, slug)
 	}
 
-	sort.Strings(extra)
+	sort.Strings(slugs)
 
-	for _, slug := range extra {
-		printer.Infof("Provider %q has models but no snippet is generated for it\n", slug)
-	}
+	return slugs
 }
 
 // writeSnippet writes the model snippet for a single provider. Providers with
