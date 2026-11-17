@@ -67,7 +67,7 @@ See the individual subcommands to learn what content you can generate.
 
 **Aliases:** `gen`, `g`
 
-**Subcommands:** `cdn`, `clients`, `guides`, `openapi`, `sla`, `snippets`, `supported-llms`
+**Subcommands:** `cdn`, `clients`, `guides`, `mcp-tools`, `openapi`, `sla`, `snippets`, `supported-llms`
 
 #### `docli generate cdn`
 
@@ -176,6 +176,52 @@ docli gen guides guides.json -o openapi-snippets/guides
 `-o, --output string`  Output directory for generated MDX files (default: `out`)
 
 `-q, --quiet`  Suppress non-error output
+
+`-v, --verbose`  Enable verbose output
+
+
+#### `docli generate mcp-tools`
+
+```sh
+docli generate mcp-tools [flags]
+```
+
+Generate the tool tables of the Productivity MCP guide.
+
+This command renders the tools of the Productivity MCP
+as three Markdown tables, one MDX snippet each:
+direct.mdx, catalog.mdx, and chatgpt.mdx.
+
+The tools come from a tools.json file written by algolia/mcp-server.
+A tool is described by its description or,
+without one, by a link to the API reference page of its only endpoint,
+titled like that page.
+
+The command fails instead of rendering a table
+that the wording of the guide would contradict:
+a tool that changes data, an empty table, a group without a section,
+or a tool it can't describe.
+
+**Examples**
+
+```sh
+# Run from the root of algolia/docs-new
+docli gen mcp-tools -o snippets/mcp/productivity-tools
+```
+
+**Flags**
+
+`--docs-dir string`  Root of the docs repository, to look up API reference pages (default: `.`)
+
+`--dry-run`  Preview actions without writing files
+
+`-h, --help`  Help for this command
+
+`-o, --output string`  Output directory for the generated snippet files (default: `.`)
+
+`-q, --quiet`  Suppress non-error output
+
+`--tools-file string`  Path to the tools.json file (default: tools.json in output dir)
 
 `-v, --verbose`  Enable verbose output
 

@@ -5,6 +5,7 @@ import (
 	"github.com/algolia/docli/pkg/cmd/generate/cdn"
 	"github.com/algolia/docli/pkg/cmd/generate/clients"
 	"github.com/algolia/docli/pkg/cmd/generate/guides"
+	"github.com/algolia/docli/pkg/cmd/generate/mcptools"
 	"github.com/algolia/docli/pkg/cmd/generate/openapi"
 	"github.com/algolia/docli/pkg/cmd/generate/sla"
 	"github.com/algolia/docli/pkg/cmd/generate/snippets"
@@ -37,6 +38,7 @@ func NewGenerateCmd() *cobra.Command {
 	command.AddCommand(guides.NewGuidesCommand())
 	command.AddCommand(cdn.NewCdnCommand())
 	command.AddCommand(supportedllms.NewCommand())
+	command.AddCommand(mcptools.NewCommand())
 
 	return command
 }
