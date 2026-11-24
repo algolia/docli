@@ -5,8 +5,8 @@ go 1.26.0
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/joho/godotenv v1.5.1
-	github.com/pb33f/go-yaml v0.1.1
-	github.com/pb33f/libopenapi v0.42.5
+	github.com/pb33f/go-yaml v0.2.0
+	github.com/pb33f/libopenapi v0.43.2
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.1.0
 	golang.org/x/mod v0.43.0
